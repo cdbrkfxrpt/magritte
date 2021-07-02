@@ -1,0 +1,10 @@
+[package]
+name = "harvester"
+version = "0.1.0"
+authors = ["Florian Eich <florian@bmc-labs.com>"]
+edition = "2018"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-postgres = "0.7.2"
+getset = "0.1"
