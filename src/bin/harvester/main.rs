@@ -7,11 +7,10 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
+use magritte::DataPoint;
+
 use tokio::time;
 use tokio_postgres::{Error, NoTls};
-
-mod data_point;
-use data_point::DataPoint;
 
 
 #[tokio::main]
