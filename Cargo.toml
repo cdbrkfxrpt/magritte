@@ -1,5 +1,6 @@
 [package]
 name = "magritte"
+description = "Ceci n'est pas une pipe"
 version = "0.1.0"
 authors = ["Florian Eich <florian@bmc-labs.com>"]
 edition = "2018"
@@ -8,3 +9,5 @@ edition = "2018"
 tokio = { version = "1", features = ["full"] }
 tokio-postgres = "0.7.2"
 getset = "0.1"
+serde = { version = "1", features = "derive" }
+serde_cbor = "*"

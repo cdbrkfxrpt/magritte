@@ -8,11 +8,12 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use getset::Getters;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use tokio_postgres::row::Row;
 
 
-#[derive(Debug, Getters)]
+#[derive(Debug, Getters, Serialize, Deserialize)]
 #[getset(get = "pub")]
 pub struct DataPoint {
   id:      i64,
@@ -39,6 +40,14 @@ impl DataPoint {
            lon:     row.get("lon"),
            lat:     row.get("lat"),
            ts:      row.get("ts"), }
+  }
+
+  pub fn to_cbor(&self) -> Result<Vec<u8>> {
+    Ok(serde_cbor::to_vec(self)?)
+  }
+
+  pub fn from_cbor(cbor: Vec<u8>) -> Result<Self> {
+    Ok(serde_cbor::from_slice(cbor.as_slice())?)
   }
 }
 
