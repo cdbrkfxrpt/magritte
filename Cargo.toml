@@ -6,8 +6,27 @@ authors = ["Florian Eich <florian@bmc-labs.com>"]
 edition = "2018"
 
 [dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+color-eyre = "0.5"
+docopt = "1.1"
+eyre = "0.6"
+getset = "0.1"
+# strum = { version = "0.19", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 tokio-postgres = "0.7.2"
-getset = "0.1"
-serde = { version = "1", features = "derive" }
-serde_cbor = "*"
+tokio-stream = "0.1"
+tracing = "0.1"
+tracing-subscriber = "0.2"
+
+# proto
+tonic = "0.5"
+prost = "0.8"
+
+# serde
+serde = { version = "1.0", features = ["derive"] }
+# serde_cbor = "0.11"
+serde_json = "1.0"
+
+
+[build-dependencies]
+tonic-build = "0.5"

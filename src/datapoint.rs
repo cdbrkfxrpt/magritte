@@ -7,26 +7,11 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use getset::Getters;
-use serde::{Deserialize, Serialize};
+use crate::DataPoint;
+
 use std::fmt;
 use tokio_postgres::row::Row;
 
-
-#[derive(Debug, Getters, Serialize, Deserialize)]
-#[getset(get = "pub")]
-pub struct DataPoint {
-  id:      i64,
-  mmsi:    i32,
-  status:  i32,
-  turn:    f64,
-  speed:   f64,
-  course:  f64,
-  heading: i32,
-  lon:     f64,
-  lat:     f64,
-  ts:      i64,
-}
 
 impl DataPoint {
   pub fn from_row(row: Row) -> Self {
@@ -40,14 +25,6 @@ impl DataPoint {
            lon:     row.get("lon"),
            lat:     row.get("lat"),
            ts:      row.get("ts"), }
-  }
-
-  pub fn to_cbor(&self) -> Result<Vec<u8>> {
-    Ok(serde_cbor::to_vec(self)?)
-  }
-
-  pub fn from_cbor(cbor: Vec<u8>) -> Result<Self> {
-    Ok(serde_cbor::from_slice(cbor.as_slice())?)
   }
 }
 
