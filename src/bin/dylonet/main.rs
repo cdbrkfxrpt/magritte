@@ -12,8 +12,11 @@ use tonic::transport::Server;
 use tracing::info;
 use tracing_subscriber::{fmt, EnvFilter};
 
+mod dylo_actor;
 mod dylonet;
-mod handler;
+mod request_handler;
+
+use request_handler::RequestHandler;
 
 
 #[tokio::main]
@@ -23,7 +26,7 @@ async fn main() -> Result<()> {
 
   let location = "127.0.0.1:52525".parse()?;
   let server = tokio::spawn(async move {
-    let dylonet_server = DylonetServiceServer::new(handler::Handler::new());
+    let dylonet_server = DylonetServiceServer::new(RequestHandler::new());
     Server::builder().add_service(dylonet_server)
                      .serve(location)
                      .await

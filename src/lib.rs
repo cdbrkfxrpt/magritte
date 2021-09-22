@@ -7,7 +7,8 @@
 mod dlns {
   tonic::include_proto!("dylonet");
 }
+
 mod datapoint;
-mod state;
+mod util;
 
 pub use dlns::*;

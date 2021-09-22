@@ -14,39 +14,28 @@ service DylonetService {
   //
   // Does not mutate Dylonet, only returns the state, a message and a counter
   // for the accesses Dylonet has processed..
-  rpc State(Empty) returns (StateResponse) {}
+  rpc Status(Empty) returns (StatusMessage);
 
   // An RPC to deliver a data point to Dylonet.
   //
   // In this implementation, data points are sourced from the marine Automatic
   // Identification System (AIS). For other uses, one may choose to implement a
   // more generic data point to replace this implementation.
-  rpc Deliver(DataPoint) returns (StateResponse) {}
+  rpc Deliver(DataPoint) returns (StatusMessage);
 
   // An RPC to acquire a result from Dylonet.
   //
   // Once a result is available, it must be collected from Dylonet to be
   // further used in application code. This call achieves this.
-  rpc Acquire(Empty) returns (AggregateResult) {}
+  rpc Acquire(Empty) returns (AggregateResult);
 }
 
 // Placeholder message for calls which don't require an argument.
 message Empty {}
 
-// Defines the states Dylonet can be in.
-enum State {
-  INACTIVE = 0;
-  READY = 1;
-  RESULTS = 2;  // indicates the availability of results
-}
-
-// Dylonet is capable of a limited number of states. Each can additionally
-// carry a message (text form) to provide information to the caller. Lastly, an
-// access counter indicates how many requests have been processed.
-message StateResponse {
-  State state = 1;
-  string msg = 2;
-  uint64 accessed = 3;
+// Simple status message
+message StatusMessage {
+  string content = 1;
 }
 
 // The data in this case is sourced from the marine Automatic Identification

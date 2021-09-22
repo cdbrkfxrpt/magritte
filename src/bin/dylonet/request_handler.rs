@@ -9,7 +9,7 @@ use magritte::{dylonet_service_server::DylonetService,
                AggregateResult,
                DataPoint,
                Empty,
-               StateResponse};
+               StatusMessage};
 
 use eyre::Result;
 use std::sync::Arc;
@@ -19,11 +19,11 @@ use tracing::info;
 
 
 #[derive(Debug)]
-pub struct Handler {
+pub struct RequestHandler {
   dylonet: Arc<Mutex<Dylonet>>,
 }
 
-impl Handler {
+impl RequestHandler {
   pub fn new() -> Self {
     info!("Handler spawning");
     Self { dylonet: Arc::new(Mutex::new(Dylonet::new())), }
@@ -31,26 +31,26 @@ impl Handler {
 }
 
 #[tonic::async_trait]
-impl DylonetService for Handler {
-  async fn state(&self,
-                 _: Request<Empty>)
-                 -> Result<Response<StateResponse>, Status> {
+impl DylonetService for RequestHandler {
+  async fn status(&self,
+                  _: Request<Empty>)
+                  -> Result<Response<StatusMessage>, Status> {
     let mtx = Arc::clone(&self.dylonet);
     let mut dylonet = mtx.lock().await;
 
-    Ok(Response::new(dylonet.as_state_response()))
+    Ok(Response::new(dylonet.status_message()))
   }
 
   async fn deliver(&self,
                    request: Request<DataPoint>)
-                   -> Result<Response<StateResponse>, Status> {
+                   -> Result<Response<StatusMessage>, Status> {
     let mtx = Arc::clone(&self.dylonet);
     let mut dylonet = mtx.lock().await;
 
     dylonet.receive(request.into_inner())
            .map_err(move |err| Status::invalid_argument(err.to_string()))?;
 
-    Ok(Response::new(dylonet.as_state_response()))
+    Ok(Response::new(dylonet.status_message()))
   }
 
   async fn acquire(&self,

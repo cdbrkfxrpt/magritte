@@ -4,40 +4,45 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use magritte::{DataPoint, State, StateResponse};
+use magritte::{DataPoint, StatusMessage};
 
+use super::dylo_actor::{DyloActor, Update};
 use eyre::Result;
+use std::collections::{BTreeMap, HashMap};
 use tracing::info;
 
 
 #[derive(Default, Debug)]
 pub struct Dylonet {
-  state:    State,
-  message:  String,
-  accessed: u64,
-  // netindex: ?
+  status_message:  String,
+  actors_by_mmsi:  HashMap<i32, DyloActor>,
+  actors_by_value: BTreeMap<i64, BTreeMap<i64, Vec<i32>>>,
 }
 
 impl Dylonet {
   pub fn new() -> Self {
     info!("Dylonet spawning");
-    Self { state:    State::Ready,
-           message:  String::new(),
-           accessed: 0u64, }
+    Self { status_message:  String::from("dylonet alive"),
+           actors_by_mmsi:  HashMap::new(),
+           actors_by_value: BTreeMap::new(), }
   }
 
-  pub fn receive(&mut self, datapoint: DataPoint) -> Result<()> {
-    info!("received datapoint: {:?}", datapoint);
-    self.message = format!("received datapoint | id: {}", datapoint.id);
+  pub fn receive(&mut self, dp: DataPoint) -> Result<()> {
+    info!("received datapoint: {:?}", dp);
+
+    match self.actors_by_mmsi.get_mut(&dp.mmsi) {
+      Some(actor) => actor.send(),
+      None => {
+        self.actors_by_mmsi
+            .insert(dp.mmsi, DyloActor::new(dp.mmsi, dp.ts, dp.lat, dp.lon));
+      }
+    };
+
     Ok(())
   }
 
-  pub fn as_state_response(&mut self) -> StateResponse {
-    self.accessed += 1;
-
+  pub fn status_message(&mut self) -> StatusMessage {
     info!("responding: {:?}", self);
-    StateResponse { state:    self.state as i32,
-                    msg:      self.message.clone(),
-                    accessed: self.accessed, }
+    StatusMessage { content: self.status_message.clone(), }
   }
 }

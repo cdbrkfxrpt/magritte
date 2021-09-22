@@ -6,17 +6,17 @@
 
 use magritte::{dylonet_service_client::DylonetServiceClient,
                DataPoint,
-               Empty,
-               State};
+               Empty};
 
 use eyre::Result;
 use tokio::{signal, time};
 use tokio_postgres::NoTls;
-use tonic::{transport::Channel, Request};
-use tracing::{error, info};
+use tonic::Request;
+use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
 
 
+const LOCATION: &str = "http://127.0.0.1:52525";
 const STEP_SIZE: i64 = 1;
 
 
@@ -25,22 +25,31 @@ async fn main() -> Result<()> {
   setup()?;
   info!("logging and tracing setup complete, harvester starting up");
 
-  let mut dylonet_client =
-    match DylonetServiceClient::connect("http://127.0.0.1:52525").await {
-      Ok(client) => client,
+  // loop to set up connection with dylonet
+  let mut dylonet_client = loop {
+    match DylonetServiceClient::connect(LOCATION).await {
+      Ok(client) => break client,
       Err(_) => {
-        error!("unable to connect to dylonet, aborting");
-        return Ok(());
+        warn!("unable to connect to dylonet, waiting...");
+        time::sleep(time::Duration::from_secs(3)).await;
       }
-    };
+    }
+  };
 
-  let mut state = get_state(&mut dylonet_client).await?;
-  while state != State::Ready {
-    info!("dylonet state: {:?}", state);
-    time::sleep(time::Duration::from_secs(3)).await;
-    state = get_state(&mut dylonet_client).await?;
+  // loop to wait for dylonet to be fully active
+  loop {
+    match dylonet_client.status(Request::new(Empty {})).await {
+      Ok(msg) => {
+        let msg = msg.into_inner();
+        info!("dylonet is ready | message: {}", msg.content);
+        break;
+      }
+      Err(err) => {
+        warn!("waiting for dylonet to become active | message: {}", err);
+        time::sleep(time::Duration::from_secs(3)).await;
+      }
+    }
   }
-  info!("dylonet is ready");
 
   let (db_client, connection) =
     tokio_postgres::connect("host=localhost user=postgres \
@@ -114,12 +123,4 @@ fn setup() -> Result<()> {
         .init();
 
   Ok(())
-}
-
-async fn get_state(client: &mut DylonetServiceClient<Channel>)
-                   -> Result<State> {
-  Ok(State::from(client.state(Request::new(Empty {}))
-                       .await?
-                       .into_inner()
-                       .state))
 }
