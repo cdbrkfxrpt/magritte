@@ -92,7 +92,36 @@ the form of `cargo doc`-able comment strings.
 
 ## Build and Run
 
-TO DO
+Building **magritte** is as canonical as it gets:
+
+```sh
+cargo build
+```
+
+Afterwards, if you intend running it, make sure that you have followed the
+instructions which came with **barbershop** and everything is up and running.
+When that's the case you're ready to run **magritte**:
+
+```sh
+cargo run --bin harvester
+cargo run --bin dylonet
+cargo run --bin bakery
+```
+
+The order doesn't matter here; **harvester** and **bakery** both wait for
+**dylonet** to come up and **dylonet** in turn doesn't do anything without
+receiving data from **harvester** and it buffers all the results (of recent
+interest) of the current.
+
+It's supposed to be simple. If you don't find it so, please let me know.
+
+There are also tests:
+
+```sh
+cargo test
+```
+
+So also this is (supposed to be) simple.
 
 
 ## References and Acknowledgments
