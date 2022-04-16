@@ -4,7 +4,7 @@ _Ceci n'est pas une pipe._
 
 > An implementation of a logic-based time series analysis approach.
 
-As self declared, magritte is not a pipeline (at least no in the canonical
+As self declared, magritte is not a pipeline (at least not in the canonical
 sense), even though a visualization would clearly look like one. It is
 asynchronous on all paths, and it takes care of everything from data
 acquisition to storing results in an easy-to-visualize manner.
@@ -23,8 +23,8 @@ number of methods and approaches exist and can be very roughly categorized as
 follows, according to the author's perspective:
 
 - classic approaches (rooted in signal processing)
-- statistical approaches (pure statistics, machine learning, ...)
-- logical approaches (event based or event driven, capable of composing
+- statistics based approaches (pure statistics, machine learning, ...)
+- logic based approaches (event based or event driven, capable of composing
     expressions, etc.)
 
 Most systems which have been created for the purpose of enabling time series
@@ -34,9 +34,9 @@ different stages of the process.
 
 Using a logical approach in a concurrent way for the analysis stage of the
 process is the subject of [my Master's
-thesis](https://gitlab.bmc-labs.com/flrn/eich21), _Concurrent Stream Data
-Analysis for Logic-based Complex Event Recognition_. This project here contains
-the implementation of the (not-a-)pipeline part of the system.
+thesis](https://gitlab.bmc-labs.com/flrn/eich21), _Concurrent Stream Reasoning
+for Complex Event Recognition_. This project here contains the implementation
+of the (not-a-)pipeline part of the system.
 
 
 ## Architecture
@@ -75,7 +75,7 @@ services running in docker containers. The database used by the setup is a
 ## Code Base Structure
 
 - **barbershop** and **opsroom**: separate entities, not included in this repo
-- **magritte**: Rust library
+- **magritte**: Rust project
     * text files (`Cargo.toml`, ...)
     * `proto`: contains `*.proto` file(s) specifying the gRPC protocol
     * `src`
