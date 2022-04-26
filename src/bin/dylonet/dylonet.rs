@@ -31,7 +31,7 @@ impl Dylonet {
     info!("received datapoint: {:?}", dp);
 
     match self.actors_by_mmsi.get_mut(&dp.mmsi) {
-      Some(actor) => actor.send(),
+      Some(&mut actor) => actor.send(),
       None => {
         self.actors_by_mmsi
             .insert(dp.mmsi, DyloActor::new(dp.mmsi, dp.ts, dp.lat, dp.lon));

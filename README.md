@@ -124,6 +124,25 @@ cargo test
 So also this is (supposed to be) simple.
 
 
+## Usage
+
+Input data must be stored in a PostgreSQL database.
+
+#### Time Series Data
+
+Time series data must be stored in a PostgreSQL database table as rows which
+have as columns:
+
+- exactly one source identifier (which vehicle/facility/sensor is this data
+    point coming from?) in `int` or `bigint` format
+- exactly one timestamp (`bigint` as UNIX epoch or `timestamp` format)
+- one or more value domain elements
+
+#### Background Knowledge
+
+Background knowledge must be stored in PostgreSQL database table
+
+
 ## References and Acknowledgments
 
 TO DO
