@@ -1,13 +1,30 @@
-// Copyright 2021 Florian Eich <florian@bmc-labs.com>
+// Copyright 2022 Florian Eich <florian.eich@gmail.com>
 //
 // This work is licensed under the Apache License, Version 2.0. You should have
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::DataPoint;
-
+use getset::Getters;
+use postgis::ewkb::Geometry;
 use std::fmt;
 use tokio_postgres::row::Row;
+
+
+#[derive(Debug, Getters)]
+#[getset(get = "pub")]
+pub struct DataPoint {
+  id:      i64,
+  mmsi:    i32,
+  status:  i32,
+  turn:    f64,
+  speed:   f64,
+  course:  f64,
+  heading: i32,
+  lon:     f64,
+  lat:     f64,
+  ts:      i64,
+  geom:    Geometry,
+}
 
 
 impl DataPoint {
@@ -21,7 +38,8 @@ impl DataPoint {
            heading: row.get("heading"),
            lon:     row.get("lon"),
            lat:     row.get("lat"),
-           ts:      row.get("ts"), }
+           ts:      row.get("ts"),
+           geom:    row.get("geom"), }
   }
 }
 
