@@ -14,17 +14,19 @@ edition = "2018"
 
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
-color-eyre = "0.5"
-docopt = "1.1"
+color-eyre = "0.6"
 eyre = "0.6"
 getset = "0.1"
 postgis = "0.9"
-# strum = { version = "0.19", features = ["derive"] }
-tokio = { version = "1", features = ["full"] }
-tokio-postgres = "0.7.2"
+# strum = { version = "0.24", features = ["derive"] }
+
+# tokio
+tokio = { version = "1", features = ["full", "tracing"] }
+tokio-postgres = "0.7"
 tokio-stream = "0.1"
 tracing = "0.1"
-tracing-subscriber = "0.2"
+tracing-subscriber = "0.3"
+console-subscriber = "0.1"
 
 # serde
 serde = { version = "1.0", features = ["derive"] }
