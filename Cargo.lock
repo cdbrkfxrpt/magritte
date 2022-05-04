@@ -700,6 +700,7 @@ dependencies = [
 name = "magritte"
 version = "0.1.0"
 dependencies = [
+ "bytes",
  "chrono",
  "color-eyre",
  "console-subscriber",

@@ -4,10 +4,10 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
+mod collector;
 mod datapoint;
-mod harvester;
-
-use harvester::Harvester;
+mod dispatcher;
+mod feeder;
 
 use eyre::Result;
 use tokio::signal;
@@ -20,12 +20,16 @@ async fn main() -> Result<()> {
   setup()?;
   info!("logging and tracing setup complete, magritte starting up");
 
-  let mut harvester = Harvester::new().await?;
+  let (feeder, lineout) = feeder::start().await?;
+  let (dispatcher, lineout) = dispatcher::start(lineout).await?;
+  let collector = collector::start(lineout).await?;
 
   signal::ctrl_c().await?;
 
   info!("magritte has received Ctrl+C, shutting down...");
-  harvester.abort();
+  collector.abort();
+  dispatcher.abort();
+  feeder.abort();
 
   info!("magritte has finished");
   Ok(())
