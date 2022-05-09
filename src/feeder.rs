@@ -44,8 +44,8 @@ pub async fn start() -> Result<(JoinHandle<()>, Receiver<DataPoint>)> {
 
   let handle = tokio::spawn(async move {
     let mut interval =
-      time::interval(time::Duration::from_secs(STEP_SIZE as u64));
-      // time::interval(time::Duration::from_millis(STEP_SIZE as u64));
+      // time::interval(time::Duration::from_secs(STEP_SIZE as u64));
+      time::interval(time::Duration::from_millis(STEP_SIZE as u64));
 
     let mut time: i64 = 1443650400;
     let mut offset: i64 = 0;
