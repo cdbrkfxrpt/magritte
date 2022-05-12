@@ -704,6 +704,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "indoc"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05a0bd019339e5d968b37855180087b7b9d512c5046fbd244cf8c95687927d6e"
+
+[[package]]
 name = "itertools"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -760,7 +766,7 @@ dependencies = [
  "console-subscriber",
  "eyre",
  "getset",
- "postgis",
+ "indoc",
  "pretty_assertions",
  "serde",
  "tokio",
@@ -986,17 +992,6 @@ name = "pin-utils"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
-
-[[package]]
-name = "postgis"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b52406590b7a682cadd0f0339c43905eb323568e84a2e97e855ef92645e0ec09"
-dependencies = [
- "byteorder",
- "bytes",
- "postgres-types",
-]
 
 [[package]]
 name = "postgres-protocol"

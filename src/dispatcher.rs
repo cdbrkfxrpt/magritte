@@ -4,9 +4,9 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::datapoint::DataPoint;
+use crate::{config::Config, datapoint::DataPoint};
 
-use eyre::Result;
+use eyre::{ensure, Result};
 use std::collections::HashMap;
 use tokio::{sync::{mpsc,
                    mpsc::{Receiver, Sender}},
@@ -14,38 +14,56 @@ use tokio::{sync::{mpsc,
 use tracing::info;
 
 
-pub async fn start(mut linein: Receiver<DataPoint>)
-                   -> Result<(JoinHandle<()>, Receiver<DataPoint>)> {
-  let (cotx, lineout) = mpsc::channel(32);
+#[derive(Debug)]
+pub struct Dispatcher {
+  channel_capacity: usize,
+  task:             Option<JoinHandle<()>>,
+}
 
-  let handle = tokio::spawn(async move {
-    let mut sinks: HashMap<i32, Sender<DataPoint>> = HashMap::new();
+impl Dispatcher {
+  pub fn new(config: &Config) -> Result<Self> {
+    Ok(Self { channel_capacity: config.channel_capacity,
+              task:             None, })
+  }
 
-    while let Some(dp) = linein.recv().await {
-      info!("{}", dp);
-      match sinks.get(dp.source()) {
-        Some(tx) => {
-          tx.send(dp).await.unwrap();
-        }
-        None => {
-          let cotx = cotx.clone();
-          let (tx, mut rx) = mpsc::channel(32);
-          sinks.insert(dp.source().clone(), tx.clone());
+  pub async fn start(&mut self,
+                     mut linein: Receiver<DataPoint>)
+                     -> Result<Receiver<DataPoint>> {
+    ensure!(self.task.is_none(), "Dispatcher already running");
 
-          tokio::spawn(async move {
-            while let Some(dp) = rx.recv().await {
-              info!("{}", dp);
-              cotx.send(dp).await.unwrap();
-            }
-          });
+    let (cotx, lineout) = mpsc::channel(self.channel_capacity);
 
-          tx.send(dp).await.unwrap();
+    let channel_capacity = self.channel_capacity;
+    let task = tokio::spawn(async move {
+      let mut sinks: HashMap<i32, Sender<DataPoint>> = HashMap::new();
+
+      while let Some(dp) = linein.recv().await {
+        info!("{}", dp);
+        match sinks.get(dp.source()) {
+          Some(tx) => {
+            tx.send(dp).await.unwrap();
+          }
+          None => {
+            let cotx = cotx.clone();
+            let (tx, mut rx) = mpsc::channel(channel_capacity);
+            sinks.insert(dp.source().clone(), tx.clone());
+
+            tokio::spawn(async move {
+              while let Some(dp) = rx.recv().await {
+                info!("{}", dp);
+                cotx.send(dp).await.unwrap();
+              }
+            });
+
+            tx.send(dp).await.unwrap();
+          }
         }
       }
-    }
-  });
+    });
+    self.task = Some(task);
 
-  Ok((handle, lineout))
+    Ok(lineout)
+  }
 }
 
 

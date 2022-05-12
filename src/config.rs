@@ -12,9 +12,15 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[clap(author, version, about)]
 pub struct Config {
-  /// Set milliseconds per execution step
+  /// Set capacity for task communication channels
+  #[clap(short, long, default_value = "32")]
+  pub channel_capacity: usize,
+  /// Set milliseconds per execution cycle
   #[clap(short, long, default_value = "1000")]
-  pub millis_per_step: usize,
+  pub millis_per_cycle: usize,
+  /// Set path for Feeder PostgreSQL
+  #[clap(short, long, default_value = "./sql/feeder.sql")]
+  pub feeder_sql_path:  String,
 }
 
 // fin --------------------------------------------------------------------- //
@@ -28,6 +34,8 @@ mod test {
   fn config_test() {
     let conf = Config::parse();
 
-    assert_eq!(conf.millis_per_step, 1000);
+    assert_eq!(conf.channel_capacity, 32);
+    assert_eq!(conf.millis_per_cycle, 1000);
+    assert_eq!(&conf.feeder_sql_path, "./sql/feeder.sql");
   }
 }
