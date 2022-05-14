@@ -18,9 +18,6 @@ pub struct Config {
   /// Set milliseconds per execution cycle
   #[clap(short, long, default_value = "1000")]
   pub millis_per_cycle: usize,
-  /// Set path for Feeder PostgreSQL
-  #[clap(short, long, default_value = "./sql/feeder.sql")]
-  pub feeder_sql_path:  String,
 }
 
 // fin --------------------------------------------------------------------- //
@@ -36,6 +33,5 @@ mod test {
 
     assert_eq!(conf.channel_capacity, 32);
     assert_eq!(conf.millis_per_cycle, 1000);
-    assert_eq!(&conf.feeder_sql_path, "./sql/feeder.sql");
   }
 }

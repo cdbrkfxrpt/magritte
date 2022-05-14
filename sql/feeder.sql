@@ -1,11 +1,11 @@
 select
 	id,
 	mmsi as "source",
-	to_timestamp(ts)::timestamp as "timestamp",
-	lat,
+  ts as "timestamp",
 	lon,
+	lat,
   speed
 from ais_data.dynamic_ships
 order by id asc
 offset $1 rows
-next {} rows only
+fetch next {} rows only

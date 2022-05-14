@@ -12,6 +12,7 @@ use tokio_postgres::row::Row;
 #[derive(Debug, Getters)]
 #[getset(get = "pub")]
 pub struct DataPoint {
+  id:        i64,
   source:    i32,
   timestamp: i64,
   lon:       f64,
@@ -22,8 +23,9 @@ pub struct DataPoint {
 
 impl DataPoint {
   pub fn from_row(row: Row) -> Self {
-    Self { source:    row.get("mmsi"),
-           timestamp: row.get("ts"),
+    Self { id:        row.get("id"),
+           source:    row.get("source"),
+           timestamp: row.get("timestamp"),
            lon:       row.get("lon"),
            lat:       row.get("lat"),
            speed:     row.get("speed"), }

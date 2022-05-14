@@ -6,7 +6,6 @@
 
 use crate::{config::Config, datapoint::DataPoint};
 
-use eyre::Result;
 use indoc::indoc;
 use tokio::{sync::{mpsc,
                    mpsc::{Receiver, Sender}},
@@ -34,29 +33,38 @@ impl Feeder {
      receiver)
   }
 
-  pub async fn run(self) -> Result<()> {
-    let (db_client, connection) =
-      tokio_postgres::connect(indoc! {"
-                              host=localhost \
-                              user=postgres \
-                              password=barbershop \
-                              dbname=doi105281zenodo1167595"},
-                              NoTls).await?;
-    info!("database connection successful");
-
-    // task awaits database connection, traces on error
+  pub fn run(self) {
     tokio::spawn(async move {
-      if let Err(e) = connection.await {
-        error!("connection error: {}", e);
-      }
-    });
+      let (db_client, connection) =
+        tokio_postgres::connect(indoc! {"
+                                host=localhost \
+                                user=postgres \
+                                password=barbershop \
+                                dbname=doi105281zenodo1167595"},
+                                NoTls).await
+                                      .unwrap();
+      info!("database connection successful");
 
-    let statement_raw =
-      format!(include_str!("../sql/feeder.sql"), self.channel_capacity);
-    let statement = db_client.prepare(&statement_raw).await?;
-    info!("SQL statement prepared");
+      // task awaits database connection, traces on error
+      tokio::spawn(async move {
+        if let Err(e) = connection.await {
+          error!("connection error: {}", e);
+        }
+      });
 
-    tokio::spawn(async move {
+      let statement_raw =
+        format!(include_str!("../sql/feeder.sql"), self.channel_capacity);
+      info!(?statement_raw);
+
+      let statement = match db_client.prepare(&statement_raw).await {
+        Ok(statement) => statement,
+        Err(err) => {
+          drop(self.to_receiver);
+          panic!("Error in Feeder PostgreSQL query: {}", err);
+        }
+      };
+      info!("SQL statement prepared");
+
       let mut interval =
         time::interval(time::Duration::from_millis(self.millis_per_cycle
                                                    as u64));
@@ -66,28 +74,20 @@ impl Feeder {
 
       loop {
         interval.tick().await;
-        let rows = db_client.query(&statement,
-                                   &[&(offset),
-                                     &(self.channel_capacity as i64)])
-                            .await
-                            .unwrap();
+        let rows = db_client.query(&statement, &[&(offset)]).await.unwrap();
 
         for row in rows {
           let dp = DataPoint::from_row(row);
           if dp.timestamp() <= &time {
-            info!("{}", dp);
             // TODO: fix unwrap
             self.to_receiver.send(dp).await.unwrap();
             //
             offset += 1;
           }
         }
-
-        time += self.millis_per_cycle as i64;
+        time += 1;
       }
     });
-
-    Ok(())
   }
 }
 

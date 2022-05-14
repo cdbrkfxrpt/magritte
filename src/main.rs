@@ -21,25 +21,60 @@ mod magritte;
 use magritte::Magritte;
 
 use eyre::Result;
-use tokio::signal;
-use tracing::info;
+use tokio::{signal, sync::mpsc};
+use tracing::{error, info};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+
+
+#[derive(Debug)]
+enum AbortSource {
+  Internal,
+  External,
+}
 
 
 #[tokio::main]
 async fn main() -> Result<()> {
   setup()?;
-
   info!("logging and tracing setup complete, magritte starting up");
-  let magritte = Magritte::new().run();
 
-  info!("magritte task has been started, setting up Ctrl+C listener");
-  signal::ctrl_c().await?;
+  let (tx, mut rx) = mpsc::unbounded_channel();
 
-  info!("magritte has received Ctrl+C, shutting down...");
-  magritte.abort();
+  let magritte_tx = tx.clone();
+  let magritte = tokio::spawn(async move {
+    Magritte::new().run().await.expect("unable to await runner");
 
-  info!("magritte has finished");
+    info!("runner has stopped");
+    match magritte_tx.send(AbortSource::Internal) {
+      Ok(()) => (),
+      Err(e) => error!("unable to inform magritte main task: {}", e),
+    }
+  });
+
+  info!("magritte runner has been started, setting up Ctrl+C listener");
+  let ctrl_c_tx = tx.clone();
+  tokio::spawn(async move {
+    signal::ctrl_c().await
+                    .expect("unable to listen for Ctrl+C event");
+
+    info!("received Ctrl+C signal");
+    match ctrl_c_tx.send(AbortSource::External) {
+      Ok(()) => (),
+      Err(e) => {
+        error!("unable to inform magritte main task: {}", e)
+      }
+    }
+  });
+
+  match rx.recv()
+          .await
+          .expect("received None on magritte main task channel")
+  {
+    AbortSource::Internal => (),
+    AbortSource::External => magritte.abort(),
+  }
+
+  info!("magritte has shut down");
   Ok(())
 }
 
