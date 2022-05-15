@@ -9,7 +9,8 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-  pub feeder: FeederConfig,
+  pub feeder:        FeederConfig,
+  pub sourcebroker: SourceBrokerConfig,
 }
 
 
@@ -36,4 +37,9 @@ pub struct FeederQuery {
   pub value_names: Vec<String>,
   pub from_table:  String,
   pub order_by:    String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct SourceBrokerConfig {
+  pub channel_capacity: usize,
 }

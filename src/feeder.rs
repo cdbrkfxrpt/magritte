@@ -7,9 +7,7 @@
 use crate::{config::FeederConfig, datapoint::DataPoint};
 
 use indoc::indoc;
-use tokio::{sync::{mpsc,
-                   mpsc::{Receiver, Sender}},
-            time};
+use tokio::{sync::mpsc, task::JoinHandle, time};
 use tokio_postgres::NoTls;
 use tracing::{error, info};
 
@@ -17,19 +15,19 @@ use tracing::{error, info};
 #[derive(Debug)]
 pub struct Feeder {
   config: FeederConfig,
-  out_tx: Sender<DataPoint>,
+  out_tx: mpsc::Sender<DataPoint>,
 }
 
 
 impl Feeder {
-  pub fn init(config: FeederConfig) -> (Self, Receiver<DataPoint>) {
+  pub fn init(config: FeederConfig) -> (Self, mpsc::Receiver<DataPoint>) {
     let (out_tx, out_rx) = mpsc::channel(config.channel_capacity);
     info!("setup of Feeder channel successful");
 
     (Self { config, out_tx }, out_rx)
   }
 
-  pub fn run(self) {
+  pub fn run(self) -> JoinHandle<()> {
     tokio::spawn(async move {
       let dbparams = format!("host={} user={} password={} dbname={}",
                              self.config.connection.host,
@@ -98,7 +96,7 @@ impl Feeder {
         }
         time += 1;
       }
-    });
+    })
   }
 }
 

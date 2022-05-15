@@ -18,6 +18,7 @@ mod config;
 mod datapoint;
 mod feeder;
 mod magritte;
+mod sourcebroker;
 
 use magritte::Magritte;
 

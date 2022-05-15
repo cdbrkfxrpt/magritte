@@ -6,21 +6,21 @@
 
 use crate::{cli::CommandLineArgs,
             config::Config,
-            datapoint::DataPoint,
-            feeder::Feeder};
+            feeder::Feeder,
+            sourcebroker::SourceBroker};
 
 use clap::Parser;
 use eyre::Result;
 use std::fs;
-use tokio::{sync::mpsc::Receiver, task::JoinHandle};
-use tracing::info;
+use tokio::task::JoinHandle;
+use tracing::{error, info};
 
 
 #[derive(Debug)]
 pub struct Magritte {
-  config:      Config,
-  feeder:      Feeder,
-  from_feeder: Receiver<DataPoint>,
+  config:       Config,
+  feeder:       Feeder,
+  sourcebroker: SourceBroker,
 }
 
 impl Magritte {
@@ -28,19 +28,22 @@ impl Magritte {
     let config_path = CommandLineArgs::parse().path_to_config;
     let config: Config = toml::from_str(&fs::read_to_string(config_path)?)?;
 
-    let (feeder, from_feeder) = Feeder::init(config.feeder.clone());
+    let (feeder, feeder_rx) = Feeder::init(config.feeder.clone());
+    let sourcebroker =
+      SourceBroker::init(config.sourcebroker.clone(), feeder_rx);
 
     Ok(Self { config,
               feeder,
-              from_feeder })
+              sourcebroker })
   }
 
-  pub fn run(mut self) -> JoinHandle<()> {
+  pub fn run(self) -> JoinHandle<()> {
     tokio::spawn(async move {
-      self.feeder.run();
+      self.sourcebroker.run();
 
-      while let Some(datapoint) = self.from_feeder.recv().await {
-        info!(?datapoint);
+      match self.feeder.run().await {
+        Ok(()) => info!("Feeder has completed data"),
+        Err(e) => error!("Feeder could not complete task: {}", e),
       }
     })
   }
