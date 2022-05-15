@@ -19,6 +19,8 @@ use tracing::{error, info};
 #[derive(Debug)]
 pub struct Magritte {
   config:       Config,
+  // collector: Collector,
+  // globalbroker: GlobalBroker,
   feeder:       Feeder,
   sourcebroker: SourceBroker,
 }
@@ -28,17 +30,30 @@ impl Magritte {
     let config_path = CommandLineArgs::parse().path_to_config;
     let config: Config = toml::from_str(&fs::read_to_string(config_path)?)?;
 
+    // let (collector, collector_tx) =
+    // Collector::init(config.collector.clone());
+
+    // let (globalbroker, globalbroker_tx) =
+    // GlobalBroker::init(config.globalbroker.clone());
+
     let (feeder, feeder_rx) = Feeder::init(config.feeder.clone());
-    let sourcebroker =
-      SourceBroker::init(config.sourcebroker.clone(), feeder_rx);
+
+    let sourcebroker = SourceBroker::init(config.sourcebroker.clone(),
+                                          // collector_tx,
+                                          // globalbroker_tx,
+                                          feeder_rx);
 
     Ok(Self { config,
               feeder,
+              // collector,
+              // globalbroker,
               sourcebroker })
   }
 
   pub fn run(self) -> JoinHandle<()> {
     tokio::spawn(async move {
+      // self.collector.run();
+      // self.globalbroker.run();
       self.sourcebroker.run();
 
       match self.feeder.run().await {

@@ -3,17 +3,15 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use getset::Getters;
 use std::collections::HashMap;
 use tokio_postgres::row::Row;
 
 
-#[derive(Clone, Debug, Getters)]
-#[getset(get = "pub")]
+#[derive(Clone, Debug)]
 pub struct DataPoint {
-  source_id: i32,
-  timestamp: i64,
-  values:    HashMap<String, f64>,
+  pub source_id: usize,
+  pub timestamp: usize,
+  pub values:    HashMap<String, f64>,
 }
 
 
@@ -31,8 +29,8 @@ impl DataPoint {
   }
 
   pub fn update(&mut self, row: Row) {
-    self.source_id = row.get("source_id");
-    self.timestamp = row.get("timestamp");
+    self.source_id = row.get::<&str, i32>("source_id") as usize;
+    self.timestamp = row.get::<&str, i64>("timestamp") as usize;
     for (value_name, value) in self.values.iter_mut() {
       *value = row.get(value_name.as_str());
     }

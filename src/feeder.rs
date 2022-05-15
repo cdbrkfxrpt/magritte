@@ -77,7 +77,7 @@ impl Feeder {
         time::interval(time::Duration::from_millis(self.config
                                                        .millis_per_cycle));
 
-      let mut time: i64 = 1443650400;
+      let mut time: usize = 1443650400;
       let mut offset: i64 = 0;
       let mut datapoint = DataPoint::new(&self.config.query.value_names);
 
@@ -87,7 +87,7 @@ impl Feeder {
 
         for row in rows {
           datapoint.update(row);
-          if datapoint.timestamp() <= &time {
+          if datapoint.timestamp <= time {
             // TODO: fix unwrap
             self.out_tx.send(datapoint.clone()).await.unwrap();
             //

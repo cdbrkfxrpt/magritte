@@ -11,6 +11,7 @@
 
 // crate level attributes
 #![allow(dead_code)] // remove once done
+#![feature(mutex_unlock)]
 //
 
 mod cli;
