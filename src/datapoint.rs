@@ -1,42 +1,40 @@
 // Copyright 2022 Florian Eich <florian.eich@gmail.com>
-//
 // This work is licensed under the Apache License, Version 2.0. You should have
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use getset::Getters;
-use std::fmt;
+use std::collections::HashMap;
 use tokio_postgres::row::Row;
 
 
-#[derive(Debug, Getters)]
+#[derive(Clone, Debug, Getters)]
 #[getset(get = "pub")]
 pub struct DataPoint {
-  id:        i64,
-  source:    i32,
+  source_id: i32,
   timestamp: i64,
-  lon:       f64,
-  lat:       f64,
-  speed:     f64,
+  values:    HashMap<String, f64>,
 }
 
 
 impl DataPoint {
-  pub fn from_row(row: Row) -> Self {
-    Self { id:        row.get("id"),
-           source:    row.get("source"),
-           timestamp: row.get("timestamp"),
-           lon:       row.get("lon"),
-           lat:       row.get("lat"),
-           speed:     row.get("speed"), }
-  }
-}
+  pub fn new(value_names: &Vec<String>) -> Self {
+    let (source_id, timestamp) = (0, 0);
+    let mut values = HashMap::new();
+    for value_name in value_names {
+      values.insert(value_name.to_owned(), 0.0f64);
+    }
 
-impl fmt::Display for DataPoint {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f,
-           "DataPoint {{\n  source: {}, timestamp: {}, lon: {:+7.3}, lat: \
-            {:+7.3}, speed: {:4.1}\n}}",
-           self.source, self.timestamp, self.lon, self.lat, self.speed)
+    Self { source_id,
+           timestamp,
+           values }
+  }
+
+  pub fn update(&mut self, row: Row) {
+    self.source_id = row.get("source_id");
+    self.timestamp = row.get("timestamp");
+    for (value_name, value) in self.values.iter_mut() {
+      *value = row.get(value_name.as_str());
+    }
   }
 }

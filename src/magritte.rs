@@ -4,9 +4,14 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::{config::Config, datapoint::DataPoint, feeder::Feeder};
+use crate::{cli::CommandLineArgs,
+            config::Config,
+            datapoint::DataPoint,
+            feeder::Feeder};
 
 use clap::Parser;
+use eyre::Result;
+use std::fs;
 use tokio::{sync::mpsc::Receiver, task::JoinHandle};
 use tracing::info;
 
@@ -19,14 +24,15 @@ pub struct Magritte {
 }
 
 impl Magritte {
-  pub fn new() -> Self {
-    let config = Config::parse();
+  pub fn new() -> Result<Self> {
+    let config_path = CommandLineArgs::parse().path_to_config;
+    let config: Config = toml::from_str(&fs::read_to_string(config_path)?)?;
 
-    let (feeder, from_feeder) = Feeder::init(&config);
+    let (feeder, from_feeder) = Feeder::init(config.feeder.clone());
 
-    Self { config,
-           feeder,
-           from_feeder }
+    Ok(Self { config,
+              feeder,
+              from_feeder })
   }
 
   pub fn run(mut self) -> JoinHandle<()> {

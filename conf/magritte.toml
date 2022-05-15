@@ -1,0 +1,24 @@
+# Copyright 2022 Florian Eich <florian.eich@gmail.com>
+#
+# This work is licensed under the Apache License, Version 2.0. You should have
+# received a copy of this license along with the source code. If that is not
+# the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
+
+title = "Configuration for magritte"
+
+[feeder]
+  channel_capacity = 32
+  millis_per_cycle = 100
+
+  [feeder.connection]
+  host = "localhost"
+  user = "postgres"
+  password = "barbershop"
+  dbname = "doi105281zenodo1167595"
+
+  [feeder.query]
+  source_id = "mmsi"
+  timestamp = "ts"
+  value_names = ["lon", "lat", "speed"]
+  from_table = "ais_data.dynamic_ships"
+  order_by = "id"

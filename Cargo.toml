@@ -22,6 +22,7 @@ getset = "0.1"
 indoc = "1.0"
 pretty_assertions = "1.2"
 # strum = { version = "0.24", features = ["derive"] }
+toml = "0.5"
 
 # tokio
 tokio = { version = "1", features = ["full", "tracing"] }

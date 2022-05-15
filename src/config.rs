@@ -1,37 +1,39 @@
-// Copyright 2022 Florian Eich <florian.eich@gmail.com>
+// Cloneright 2022 Florian Eich <florian.eich@gmail.com>
 //
 // This work is licensed under the Apache License, Version 2.0. You should have
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use clap::Parser;
+use serde::Deserialize;
 
 
-/// Uses the `clap` crate to parse runtime configuration parameters from the
-/// command line. These include things like execution step size, timeouts, ...
-#[derive(Parser, Debug)]
-#[clap(author, version, about)]
+#[derive(Debug, Deserialize)]
 pub struct Config {
-  /// Set capacity for task communication channels
-  #[clap(short, long, default_value = "32")]
-  pub channel_capacity: usize,
-  /// Set milliseconds per execution cycle
-  #[clap(short, long, default_value = "1000")]
-  pub millis_per_cycle: usize,
+  pub feeder: FeederConfig,
 }
 
-// fin --------------------------------------------------------------------- //
 
-#[cfg(test)]
-mod test {
-  use super::*;
-  use pretty_assertions::assert_eq;
+#[derive(Clone, Debug, Deserialize)]
+pub struct FeederConfig {
+  pub channel_capacity: usize,
+  pub millis_per_cycle: u64,
+  pub connection:       FeederConnection,
+  pub query:            FeederQuery,
+}
 
-  #[test]
-  fn config_test() {
-    let conf = Config::parse();
+#[derive(Clone, Debug, Deserialize)]
+pub struct FeederConnection {
+  pub host:     String,
+  pub user:     String,
+  pub password: String,
+  pub dbname:   String,
+}
 
-    assert_eq!(conf.channel_capacity, 32);
-    assert_eq!(conf.millis_per_cycle, 1000);
-  }
+#[derive(Clone, Debug, Deserialize)]
+pub struct FeederQuery {
+  pub source_id:   String,
+  pub timestamp:   String,
+  pub value_names: Vec<String>,
+  pub from_table:  String,
+  pub order_by:    String,
 }

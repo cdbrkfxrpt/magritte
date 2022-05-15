@@ -13,6 +13,7 @@
 #![allow(dead_code)] // remove once done
 //
 
+mod cli;
 mod config;
 mod datapoint;
 mod feeder;
@@ -27,9 +28,10 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 
 #[derive(Debug)]
-enum AbortSource {
-  Internal,
-  External,
+enum ShutdownCause {
+  RunnerInitFailed,
+  RunnerCompletion,
+  UserAbort,
 }
 
 
@@ -42,12 +44,19 @@ async fn main() -> Result<()> {
 
   let magritte_tx = tx.clone();
   let magritte = tokio::spawn(async move {
-    Magritte::new().run().await.expect("unable to await runner");
+    match Magritte::new() {
+      Ok(magritte) => magritte.run().await.expect("unable to await runner"),
+      Err(e) => {
+        info!("runner init failed: {}", e);
+        if let Err(e) = magritte_tx.send(ShutdownCause::RunnerInitFailed) {
+          error!("unable to inform magritte main task: {}", e);
+        }
+      }
+    }
 
     info!("runner has stopped");
-    match magritte_tx.send(AbortSource::Internal) {
-      Ok(()) => (),
-      Err(e) => error!("unable to inform magritte main task: {}", e),
+    if let Err(e) = magritte_tx.send(ShutdownCause::RunnerCompletion) {
+      error!("unable to inform magritte main task: {}", e);
     }
   });
 
@@ -58,11 +67,8 @@ async fn main() -> Result<()> {
                     .expect("unable to listen for Ctrl+C event");
 
     info!("received Ctrl+C signal");
-    match ctrl_c_tx.send(AbortSource::External) {
-      Ok(()) => (),
-      Err(e) => {
-        error!("unable to inform magritte main task: {}", e)
-      }
+    if let Err(e) = ctrl_c_tx.send(ShutdownCause::UserAbort) {
+      error!("unable to inform magritte main task: {}", e);
     }
   });
 
@@ -70,8 +76,8 @@ async fn main() -> Result<()> {
           .await
           .expect("received None on magritte main task channel")
   {
-    AbortSource::Internal => (),
-    AbortSource::External => magritte.abort(),
+    ShutdownCause::RunnerInitFailed | ShutdownCause::RunnerCompletion => (),
+    ShutdownCause::UserAbort => magritte.abort(),
   }
 
   info!("magritte has shut down");
