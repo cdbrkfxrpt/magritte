@@ -45,18 +45,19 @@ async fn main() -> Result<()> {
   let magritte_tx = tx.clone();
   let magritte = tokio::spawn(async move {
     match Magritte::new() {
-      Ok(magritte) => magritte.run().await.expect("unable to await runner"),
+      Ok(magritte) => {
+        magritte.run().await.expect("unable to await runner");
+        info!("runner has stopped");
+        if let Err(e) = magritte_tx.send(ShutdownCause::RunnerCompletion) {
+          error!("unable to inform magritte main task: {}", e);
+        }
+      }
       Err(e) => {
         info!("runner init failed: {}", e);
         if let Err(e) = magritte_tx.send(ShutdownCause::RunnerInitFailed) {
           error!("unable to inform magritte main task: {}", e);
         }
       }
-    }
-
-    info!("runner has stopped");
-    if let Err(e) = magritte_tx.send(ShutdownCause::RunnerCompletion) {
-      error!("unable to inform magritte main task: {}", e);
     }
   });
 
