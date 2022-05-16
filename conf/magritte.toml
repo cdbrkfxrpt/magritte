@@ -23,5 +23,5 @@ title = "Configuration for magritte"
   from_table = "ais_data.dynamic_ships"
   order_by = "id"
 
-[sourcebroker]
+[broker]
   channel_capacity = 32

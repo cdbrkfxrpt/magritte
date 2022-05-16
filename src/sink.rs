@@ -4,14 +4,14 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::datapoint::DataPoint;
+use crate::datapoint::Datapoint;
 
 use eyre::Result;
 use tokio::{sync::mpsc::Receiver, task::JoinHandle};
 // use tokio_postgres::NoTls;
 use tracing::info;
 
-pub async fn start(mut linein: Receiver<DataPoint>) -> Result<JoinHandle<()>> {
+pub async fn start(mut linein: Receiver<Datapoint>) -> Result<JoinHandle<()>> {
   // let (db_client, connection) =
   //   tokio_postgres::connect("host=localhost user=postgres \
   //                            password=barbershop dbname=results",
@@ -24,4 +24,32 @@ pub async fn start(mut linein: Receiver<DataPoint>) -> Result<JoinHandle<()>> {
     }
   });
   Ok(handle)
+}
+
+
+#[derive(Debug)]
+pub struct EvalResult {
+  source:    usize,
+  timestamp: usize,
+  lon:       f64,
+  lat:       f64,
+  name:      String,
+  desc:      String,
+}
+
+impl EvalResult {
+  pub fn new(source: usize,
+             timestamp: usize,
+             lon: f64,
+             lat: f64,
+             name: &str,
+             desc: &str)
+             -> Self {
+    Self { source,
+           timestamp,
+           lon,
+           lat,
+           name: name.to_owned(),
+           desc: desc.to_owned() }
+  }
 }

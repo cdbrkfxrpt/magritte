@@ -14,14 +14,16 @@
 #![feature(mutex_unlock)]
 //
 
-mod cli;
+mod broker;
 mod config;
 mod datapoint;
 mod feeder;
-mod magritte;
-mod sourcebroker;
+// mod sink;
 
-use magritte::Magritte;
+use broker::Broker;
+use config::Config;
+use feeder::Feeder;
+// use sink::Sink;
 
 use eyre::Result;
 use tokio::{signal, sync::mpsc};
@@ -42,21 +44,33 @@ async fn main() -> Result<()> {
   setup()?;
   info!("logging and tracing setup complete, magritte starting up");
 
+  let config = Config::new()?;
+
   let (tx, mut rx) = mpsc::unbounded_channel();
 
-  let magritte_tx = tx.clone();
-  let magritte = tokio::spawn(async move {
-    match Magritte::new() {
-      Ok(magritte) => {
-        magritte.run().await.expect("unable to await runner");
+  let runner_tx = tx.clone();
+  let runner = tokio::spawn(async move {
+    // let (sink, sink_tx) =
+    // Sink::init(config.sink.clone());
+
+    let (feeder, feeder_rx) = Feeder::init(config.feeder.clone());
+
+    let broker = Broker::init(config.broker.clone(),
+                              // sink_tx,
+                              feeder_rx);
+    // sink.run();
+    broker.run();
+
+    match feeder.run().await {
+      Ok(()) => {
         info!("runner has stopped");
-        if let Err(e) = magritte_tx.send(ShutdownCause::RunnerCompletion) {
+        if let Err(e) = runner_tx.send(ShutdownCause::RunnerCompletion) {
           error!("unable to inform magritte main task: {}", e);
         }
       }
       Err(e) => {
         info!("runner init failed: {}", e);
-        if let Err(e) = magritte_tx.send(ShutdownCause::RunnerInitFailed) {
+        if let Err(e) = runner_tx.send(ShutdownCause::RunnerInitFailed) {
           error!("unable to inform magritte main task: {}", e);
         }
       }
@@ -80,7 +94,7 @@ async fn main() -> Result<()> {
           .expect("received None on magritte main task channel")
   {
     ShutdownCause::RunnerInitFailed | ShutdownCause::RunnerCompletion => (),
-    ShutdownCause::UserAbort => magritte.abort(),
+    ShutdownCause::UserAbort => runner.abort(),
   }
 
   info!("magritte has shut down");

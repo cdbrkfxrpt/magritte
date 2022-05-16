@@ -4,39 +4,37 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::{config::SourceBrokerConfig, datapoint::DataPoint};
+use crate::{config::BrokerConfig, datapoint::Datapoint};
+// use crate::sink::Sink;
 
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{mpsc, Mutex};
 use tracing::info;
 
 
-type SourcesIndex = Arc<Mutex<HashMap<usize, mpsc::Sender<DataPoint>>>>;
+type SourcesIndex = Arc<Mutex<HashMap<usize, mpsc::Sender<Datapoint>>>>;
 
 
 #[derive(Debug)]
-pub struct SourceBroker {
-  config:        SourceBrokerConfig,
-  // collector_tx: Sender<EvalResult>,
-  // globalbroker_tx: Sender<GlobalBrokerRequest>,
-  feeder_rx:     mpsc::Receiver<DataPoint>,
-  request_tx:    mpsc::Sender<SourceBrokerRequest>,
-  request_rx:    mpsc::Receiver<SourceBrokerRequest>,
+pub struct Broker {
+  config:        BrokerConfig,
+  // sink_tx: Sender<EvalResult>,
+  feeder_rx:     mpsc::Receiver<Datapoint>,
+  request_tx:    mpsc::Sender<Request>,
+  request_rx:    mpsc::Receiver<Request>,
   sources_index: SourcesIndex,
 }
 
-impl SourceBroker {
-  pub fn init(config: SourceBrokerConfig,
-              // collector_tx: mpsc::Sender<EvalResult>,
-              // globalbroker_tx: mpsc::Sender<GlobalBrokerReq>,
-              feeder_rx: mpsc::Receiver<DataPoint>)
+impl Broker {
+  pub fn init(config: BrokerConfig,
+              // sink_tx: mpsc::Sender<EvalResult>,
+              feeder_rx: mpsc::Receiver<Datapoint>)
               -> Self {
     let (request_tx, request_rx) = mpsc::channel(config.channel_capacity);
     let sources_index = Arc::new(Mutex::new(HashMap::new()));
 
     Self { config,
-           // collector_tx,
-           // globalbroker_tx,
+           // sink_tx,
            request_tx,
            request_rx,
            feeder_rx,
@@ -75,4 +73,4 @@ impl SourceBroker {
 
 
 #[derive(Debug)]
-pub struct SourceBrokerRequest {}
+pub struct Request {}

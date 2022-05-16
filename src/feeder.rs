@@ -4,7 +4,7 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::{config::FeederConfig, datapoint::DataPoint};
+use crate::{config::FeederConfig, datapoint::Datapoint};
 
 use indoc::indoc;
 use tokio::{sync::mpsc, task::JoinHandle, time};
@@ -15,12 +15,12 @@ use tracing::{error, info};
 #[derive(Debug)]
 pub struct Feeder {
   config: FeederConfig,
-  out_tx: mpsc::Sender<DataPoint>,
+  out_tx: mpsc::Sender<Datapoint>,
 }
 
 
 impl Feeder {
-  pub fn init(config: FeederConfig) -> (Self, mpsc::Receiver<DataPoint>) {
+  pub fn init(config: FeederConfig) -> (Self, mpsc::Receiver<Datapoint>) {
     let (out_tx, out_rx) = mpsc::channel(config.channel_capacity);
     info!("setup of Feeder channel successful");
 
@@ -79,7 +79,7 @@ impl Feeder {
 
       let mut time: usize = 1443650400;
       let mut offset: i64 = 0;
-      let mut datapoint = DataPoint::new(&self.config.query.value_names);
+      let mut datapoint = Datapoint::new(&self.config.query.value_names);
 
       loop {
         interval.tick().await;

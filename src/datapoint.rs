@@ -8,14 +8,14 @@ use tokio_postgres::row::Row;
 
 
 #[derive(Clone, Debug)]
-pub struct DataPoint {
+pub struct Datapoint {
   pub source_id: usize,
   pub timestamp: usize,
   pub values:    HashMap<String, f64>,
 }
 
 
-impl DataPoint {
+impl Datapoint {
   pub fn new(value_names: &Vec<String>) -> Self {
     let (source_id, timestamp) = (0, 0);
     let mut values = HashMap::new();
