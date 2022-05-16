@@ -8,7 +8,7 @@ title = "Configuration for magritte"
 
 [feeder]
   channel_capacity = 32
-  millis_per_cycle = 1
+  millis_per_cycle = 1000
 
   [feeder.connection]
   host = "localhost"

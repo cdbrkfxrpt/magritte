@@ -5,34 +5,49 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 // use crate::types::{Datapoint, Message, Request};
-use crate::types::Message;
+// use crate::types::{FluentResult, Message};
+use crate::{fluent::{build_index, Fluent, FluentBase},
+            types::Message};
 
 use std::collections::HashMap;
 use tokio::sync::mpsc;
-use tracing::info;
 
 
 #[derive(Debug)]
 pub struct Source {
-  source_rx:    mpsc::Receiver<Message>,
-  message_tx:   mpsc::Sender<Message>,
-  fluent_index: HashMap<String, mpsc::Sender<Message>>,
+  source_rx:  mpsc::Receiver<Message>,
+  message_tx: mpsc::Sender<Message>,
+  // sink_tx:      mpsc::Sender<FluentResult>,
+  fluents:    HashMap<String, mpsc::Sender<Message>>,
 }
 
 impl Source {
   pub fn init(source_rx: mpsc::Receiver<Message>,
-              message_tx: mpsc::Sender<Message>)
+              message_tx: mpsc::Sender<Message> /* sink_tx: mpsc::Sender<FluentResult> */)
               -> Self {
-    let fluent_index = HashMap::new();
+    let fluents = HashMap::new();
+
     Self { source_rx,
            message_tx,
-           fluent_index }
+           // sink_tx,
+           fluents }
   }
 
   pub fn run(mut self) {
     tokio::spawn(async move {
+      for (name, fluent) in build_index() {
+        let (fluent_tx, fluent_rx) = mpsc::channel(32);
+        self.fluents.insert(name, fluent_tx);
+
+        FluentBase::<dyn Fluent>::init(fluent_rx,
+                                       self.message_tx.clone(),
+                                       fluent).run();
+      }
+
       while let Some(message) = self.source_rx.recv().await {
-        info!(?message);
+        for (_, fluent_tx) in self.fluents.clone() {
+          fluent_tx.send(message.clone()).await.unwrap();
+        }
       }
     });
   }

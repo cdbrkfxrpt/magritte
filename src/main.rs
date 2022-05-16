@@ -12,11 +12,13 @@
 // crate level attributes
 #![allow(dead_code)] // remove once done
 #![feature(mutex_unlock)]
+#![feature(box_into_inner)]
 //
 
 mod broker;
 mod config;
 mod feeder;
+mod fluent;
 mod source;
 mod types;
 // mod sink;

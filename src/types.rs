@@ -4,11 +4,11 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use std::collections::HashMap;
-use tokio::sync::oneshot;
+use tokio::sync::mpsc;
 use tokio_postgres::row::Row;
 
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Message {
   Data(Datapoint),
   SourceRequest(Request),
@@ -47,17 +47,25 @@ impl Datapoint {
 }
 
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Request {
   pub source_id:   Option<usize>,
   pub name:        String,
   pub params:      HashMap<String, f64>,
-  pub response_tx: oneshot::Sender<Response>,
+  pub response_tx: mpsc::Sender<Response>,
 }
 
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Response {
   Boolean { source_id: usize, value: bool },
   Numeric { source_id: usize, value: f64 },
+}
+
+
+#[derive(Clone, Debug)]
+pub struct FluentResult {
+  pub datapoint:   Datapoint,
+  pub name:        String,
+  pub description: String,
 }
