@@ -4,7 +4,7 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::{config::FeederConfig, datapoint::Datapoint};
+use crate::{config::FeederConfig, types::Datapoint};
 
 use indoc::indoc;
 use tokio::{sync::mpsc, task::JoinHandle, time};

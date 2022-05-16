@@ -4,7 +4,16 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use std::collections::HashMap;
+use tokio::sync::oneshot;
 use tokio_postgres::row::Row;
+
+
+#[derive(Debug)]
+pub enum Message {
+  Data(Datapoint),
+  SourceRequest(Request),
+  KnowledgeRequest(Request),
+}
 
 
 #[derive(Clone, Debug)]
@@ -35,4 +44,20 @@ impl Datapoint {
       *value = row.get(value_name.as_str());
     }
   }
+}
+
+
+#[derive(Debug)]
+pub struct Request {
+  pub source_id:   Option<usize>,
+  pub name:        String,
+  pub params:      HashMap<String, f64>,
+  pub response_tx: oneshot::Sender<Response>,
+}
+
+
+#[derive(Debug)]
+pub enum Response {
+  Boolean { source_id: usize, value: bool },
+  Numeric { source_id: usize, value: f64 },
 }

@@ -4,7 +4,7 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::datapoint::Datapoint;
+use crate::types::Datapoint;
 
 use eyre::Result;
 use tokio::{sync::mpsc::Receiver, task::JoinHandle};
