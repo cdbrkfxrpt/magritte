@@ -18,3 +18,11 @@ impl Fluent for NeutralFluent {
                         description: String::from("forwards datapoint") })
   }
 }
+
+
+// #[derive(Debug)]
+// pub struct NearCoast {}
+
+// impl Fluent for NearCoast {
+//   fn rule(&self, datapoint: Datapoint)
+// }

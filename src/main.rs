@@ -56,7 +56,7 @@ async fn main() -> Result<()> {
   let runner = tokio::spawn(async move {
     let (sink, sink_tx) = Sink::init(config.sink.clone());
     let (feeder, feeder_rx) = Feeder::init(config.feeder.clone());
-    let broker = Broker::init(config.broker.clone(), sink_tx, feeder_rx);
+    let broker = Broker::init(config.broker.clone(), feeder_rx, sink_tx);
 
     sink.run();
     broker.run();

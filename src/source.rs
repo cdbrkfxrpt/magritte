@@ -37,7 +37,9 @@ impl Source {
 
   pub fn run(mut self) {
     tokio::spawn(async move {
+      // initialize and run Fluents
       for (name, fluent) in build_index() {
+        // TODO capacity from config
         let (fluent_tx, fluent_rx) = mpsc::channel(32);
         self.fluents.insert(name.clone(), fluent_tx);
 
@@ -49,6 +51,7 @@ impl Source {
                                        self.sink_tx.clone()).run();
       }
 
+      // handle incoming messages
       while let Some(message) = self.source_rx.recv().await {
         for (_, fluent_tx) in self.fluents.clone() {
           fluent_tx.send(message.clone()).await.unwrap();

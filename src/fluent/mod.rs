@@ -9,7 +9,6 @@ pub use fluents::NeutralFluent;
 
 use crate::types::{Datapoint, FluentResult, Message};
 
-use core::fmt;
 use std::collections::HashMap;
 use tokio::sync::mpsc;
 use tracing::info;
@@ -17,11 +16,16 @@ use tracing::info;
 
 type FluentIndex = HashMap<String, Box<dyn Fluent>>;
 
+pub trait Fluent: Send + core::fmt::Debug {
+  fn rule(&self, datapoint: Datapoint) -> Option<FluentResult>;
+}
+
 
 pub fn build_index() -> FluentIndex {
   let mut fluent_index: FluentIndex = HashMap::new();
 
   fluent_index.insert("neutral_fluent".to_owned(), Box::new(NeutralFluent));
+  // fluent_index.insert("near_coast".to_owned(), Box::new(NearCoast));
 
   fluent_index
 }
@@ -73,16 +77,5 @@ impl<T: 'static + Send + ?Sized + Fluent> FluentBase<T> {
         }
       }
     });
-  }
-}
-
-
-pub trait Fluent: Send {
-  fn rule(&self, datapoint: Datapoint) -> Option<FluentResult>;
-}
-
-impl fmt::Debug for dyn Fluent {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "I'm a Fluent")
   }
 }
