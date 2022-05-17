@@ -6,8 +6,7 @@
 
 use crate::{config::BrokerConfig,
             source::Source,
-            types::{Datapoint, Message}};
-// use crate::sink::Sink;
+            types::{Datapoint, FluentResult, Message}};
 
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{mpsc, Mutex};
@@ -22,20 +21,20 @@ pub struct Broker {
   feeder_rx:  mpsc::Receiver<Datapoint>,
   message_tx: mpsc::Sender<Message>,
   message_rx: mpsc::Receiver<Message>,
-  // sink_tx:       mpsc::Sender<FluentResult>,
+  sink_tx:    mpsc::Sender<FluentResult>,
   sources:    Sources,
 }
 
 impl Broker {
   pub fn init(config: BrokerConfig,
-              // sink_tx: mpsc::Sender<FluentResult>,
+              sink_tx: mpsc::Sender<FluentResult>,
               feeder_rx: mpsc::Receiver<Datapoint>)
               -> Self {
     let (message_tx, message_rx) = mpsc::channel(config.channel_capacity);
     let sources = Arc::new(Mutex::new(HashMap::new()));
 
     Self { config,
-           // sink_tx,
+           sink_tx,
            message_tx,
            message_rx,
            feeder_rx,
@@ -55,7 +54,10 @@ impl Broker {
             mpsc::channel(self.config.channel_capacity);
 
           sources.insert(datapoint.source_id, source_tx.clone());
-          Source::init(source_rx, self.message_tx.clone()).run();
+          Source::init(datapoint.source_id,
+                       source_rx,
+                       self.message_tx.clone(),
+                       self.sink_tx.clone()).run();
 
           source_tx
         } else {

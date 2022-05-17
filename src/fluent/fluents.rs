@@ -7,13 +7,14 @@
 use super::Fluent;
 use crate::types::{Datapoint, FluentResult};
 
+
 #[derive(Debug)]
 pub struct NeutralFluent;
 
 impl Fluent for NeutralFluent {
-  fn rule(&self, datapoint: Datapoint) -> FluentResult {
-    FluentResult { datapoint,
-                   name: String::from("Neutral Fluent"),
-                   description: String::from("neutral element on datapoint") }
+  fn rule(&self, datapoint: Datapoint) -> Option<FluentResult> {
+    Some(FluentResult { datapoint,
+                        name: String::from("Neutral Fluent"),
+                        description: String::from("forwards datapoint") })
   }
 }

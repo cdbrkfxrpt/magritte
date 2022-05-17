@@ -19,14 +19,14 @@ mod broker;
 mod config;
 mod feeder;
 mod fluent;
+mod sink;
 mod source;
 mod types;
-// mod sink;
 
 use broker::Broker;
 use config::Config;
 use feeder::Feeder;
-// use sink::Sink;
+use sink::Sink;
 
 use eyre::Result;
 use tokio::{signal, sync::mpsc};
@@ -48,20 +48,17 @@ async fn main() -> Result<()> {
   info!("logging and tracing setup complete, magritte starting up");
 
   let config = Config::new()?;
+  info!(?config);
 
   let (tx, mut rx) = mpsc::unbounded_channel();
 
   let runner_tx = tx.clone();
   let runner = tokio::spawn(async move {
-    // let (sink, sink_tx) =
-    // Sink::init(config.sink.clone());
-
+    let (sink, sink_tx) = Sink::init(config.sink.clone());
     let (feeder, feeder_rx) = Feeder::init(config.feeder.clone());
+    let broker = Broker::init(config.broker.clone(), sink_tx, feeder_rx);
 
-    let broker = Broker::init(config.broker.clone(),
-                              // sink_tx,
-                              feeder_rx);
-    // sink.run();
+    sink.run();
     broker.run();
 
     match feeder.run().await {

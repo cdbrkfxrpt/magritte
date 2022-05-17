@@ -16,6 +16,7 @@ pub struct Config {
   pub args:   CommandLineArgs,
   pub feeder: FeederConfig,
   pub broker: BrokerConfig,
+  pub sink:   SinkConfig,
 }
 
 impl Config {
@@ -34,16 +35,8 @@ impl Config {
 pub struct FeederConfig {
   pub channel_capacity: usize,
   pub millis_per_cycle: u64,
-  pub connection:       FeederConnection,
+  pub connection:       DatabaseConnection,
   pub query:            FeederQuery,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct FeederConnection {
-  pub host:     String,
-  pub user:     String,
-  pub password: String,
-  pub dbname:   String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -55,9 +48,27 @@ pub struct FeederQuery {
   pub order_by:    String,
 }
 
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct BrokerConfig {
   pub channel_capacity: usize,
+  pub connection:       DatabaseConnection,
+}
+
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct SinkConfig {
+  pub channel_capacity: usize,
+  pub connection:       DatabaseConnection,
+}
+
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct DatabaseConnection {
+  pub host:     String,
+  pub user:     String,
+  pub password: String,
+  pub dbname:   String,
 }
 
 

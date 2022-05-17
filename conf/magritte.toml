@@ -4,11 +4,9 @@
 # received a copy of this license along with the source code. If that is not
 # the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-title = "Configuration for magritte"
-
 [feeder]
   channel_capacity = 32
-  millis_per_cycle = 1000
+  millis_per_cycle = 100
 
   [feeder.connection]
   host = "localhost"
@@ -25,3 +23,18 @@ title = "Configuration for magritte"
 
 [broker]
   channel_capacity = 32
+
+  [broker.connection]
+  host = "localhost"
+  user = "postgres"
+  password = "barbershop"
+  dbname = "doi105281zenodo1167595"
+
+[sink]
+  channel_capacity = 32
+
+  [sink.connection]
+  host = "localhost"
+  user = "postgres"
+  password = "barbershop"
+  dbname = "magritte_results"

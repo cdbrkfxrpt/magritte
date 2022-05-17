@@ -4,8 +4,8 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-mod neutral_fluent;
-pub use neutral_fluent::NeutralFluent;
+mod fluents;
+pub use fluents::NeutralFluent;
 
 use crate::types::{Datapoint, FluentResult, Message};
 
@@ -29,30 +29,47 @@ pub fn build_index() -> FluentIndex {
 
 #[derive(Debug)]
 pub struct FluentBase<T: 'static + Send + ?Sized + Fluent> {
+  source_id:  usize,
+  name:       String,
+  fluent:     Box<T>,
   fluent_rx:  mpsc::Receiver<Message>,
   message_tx: mpsc::Sender<Message>,
-  // sink_tx:    mpsc::Sender<FluentResult>,
-  fluent:     Box<T>,
+  sink_tx:    mpsc::Sender<FluentResult>,
 }
 
 impl<T: 'static + Send + ?Sized + Fluent> FluentBase<T> {
-  pub fn init(fluent_rx: mpsc::Receiver<Message>,
+  pub fn init(source_id: usize,
+              name: String,
+              fluent: Box<T>,
+              fluent_rx: mpsc::Receiver<Message>,
               message_tx: mpsc::Sender<Message>,
-              // sink_tx: mpsc::Sender<FluentResult>,
-              fluent: Box<T>)
+              sink_tx: mpsc::Sender<FluentResult>)
               -> Self {
-    Self { fluent_rx,
+    Self { source_id,
+           name,
+           fluent,
+           fluent_rx,
            message_tx,
-           // sink_tx,
-           fluent }
+           sink_tx }
   }
 
   pub fn run(mut self) {
     tokio::spawn(async move {
       while let Some(message) = self.fluent_rx.recv().await {
-        if let Message::Data(datapoint) = message {
-          let fluent_result = self.fluent.rule(datapoint);
-          info!(?fluent_result);
+        match message {
+          Message::Data(datapoint) => {
+            let rule_eval = self.fluent.rule(datapoint);
+            match rule_eval {
+              Some(fluent_result) => {
+                self.sink_tx.send(fluent_result).await.unwrap();
+              }
+              None => {
+                info!("fluent {} produced None result on source {}",
+                      self.name, self.source_id)
+              }
+            }
+          }
+          _ => (),
         }
       }
     });
@@ -61,7 +78,7 @@ impl<T: 'static + Send + ?Sized + Fluent> FluentBase<T> {
 
 
 pub trait Fluent: Send {
-  fn rule(&self, datapoint: Datapoint) -> FluentResult;
+  fn rule(&self, datapoint: Datapoint) -> Option<FluentResult>;
 }
 
 impl fmt::Debug for dyn Fluent {

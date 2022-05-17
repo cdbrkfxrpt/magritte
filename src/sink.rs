@@ -4,52 +4,31 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::types::Datapoint;
+use crate::{config::SinkConfig, types::FluentResult};
 
-use eyre::Result;
-use tokio::{sync::mpsc::Receiver, task::JoinHandle};
-// use tokio_postgres::NoTls;
+use tokio::sync::mpsc;
 use tracing::info;
-
-pub async fn start(mut linein: Receiver<Datapoint>) -> Result<JoinHandle<()>> {
-  // let (db_client, connection) =
-  //   tokio_postgres::connect("host=localhost user=postgres \
-  //                            password=barbershop dbname=results",
-  //                           NoTls).await?;
-  // info!("database connection successful");
-
-  let handle = tokio::spawn(async move {
-    while let Some(dp) = linein.recv().await {
-      info!("{}", dp);
-    }
-  });
-  Ok(handle)
-}
 
 
 #[derive(Debug)]
-pub struct EvalResult {
-  source:    usize,
-  timestamp: usize,
-  lon:       f64,
-  lat:       f64,
-  name:      String,
-  desc:      String,
+pub struct Sink {
+  config:  SinkConfig,
+  sink_rx: mpsc::Receiver<FluentResult>,
 }
 
-impl EvalResult {
-  pub fn new(source: usize,
-             timestamp: usize,
-             lon: f64,
-             lat: f64,
-             name: &str,
-             desc: &str)
-             -> Self {
-    Self { source,
-           timestamp,
-           lon,
-           lat,
-           name: name.to_owned(),
-           desc: desc.to_owned() }
+impl Sink {
+  pub fn init(config: SinkConfig) -> (Self, mpsc::Sender<FluentResult>) {
+    let (sink_tx, sink_rx) = mpsc::channel(config.channel_capacity);
+    info!("setup of Sink channel successful");
+
+    (Self { config, sink_rx }, sink_tx)
+  }
+
+  pub fn run(mut self) {
+    tokio::spawn(async move {
+      while let Some(fluent_result) = self.sink_rx.recv().await {
+        info!(?fluent_result);
+      }
+    });
   }
 }
