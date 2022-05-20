@@ -53,8 +53,17 @@ impl Source {
 
       // handle incoming messages
       while let Some(message) = self.source_rx.recv().await {
-        for (_, fluent_tx) in self.fluents.clone() {
-          fluent_tx.send(message.clone()).await.unwrap();
+        let matcher_msg = message.clone();
+        match matcher_msg {
+          Message::Datapoint { .. } => {
+            for (_, fluent_tx) in &self.fluents {
+              fluent_tx.send(message.clone()).await.unwrap();
+            }
+          }
+          Message::Request { fn_name, .. } => {
+            self.fluents[&fn_name].send(message).await.unwrap();
+          }
+          _ => (),
         }
       }
     });

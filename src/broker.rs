@@ -4,11 +4,13 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::{config::BrokerConfig, source::Source, types::Message};
+use crate::{config::BrokerConfig,
+            source::Source,
+            types::{Message, RequestType}};
 
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{mpsc, Mutex};
-use tracing::info;
+// use tracing::info;
 
 
 type Sources = Arc<Mutex<HashMap<usize, mpsc::Sender<Message>>>>;
@@ -20,7 +22,7 @@ pub struct Broker {
   request_tx:      mpsc::Sender<Message>,
   sources:         Sources,
   data_handler:    DataHandler,
-  request_handler: MessageHandler,
+  request_handler: RequestHandler,
 }
 
 impl Broker {
@@ -36,7 +38,7 @@ impl Broker {
                                          request_tx.clone(),
                                          sources.clone());
 
-    let request_handler = MessageHandler::init(request_rx, sources.clone());
+    let request_handler = RequestHandler::init(request_rx, sources.clone());
 
     Self { config,
            request_tx,
@@ -80,7 +82,7 @@ impl DataHandler {
         let mut sources = self.sources.lock().await;
 
         let Message::Datapoint { source_id, .. } = message else {
-          panic!("data sent from Feeder not a datapoint");
+          panic!("message sent from Feeder not a datapoint");
         };
 
         let source_tx = if !sources.contains_key(&source_id) {
@@ -105,12 +107,12 @@ impl DataHandler {
 
 
 #[derive(Debug)]
-pub struct MessageHandler {
+pub struct RequestHandler {
   request_rx: mpsc::Receiver<Message>,
   sources:    Sources,
 }
 
-impl MessageHandler {
+impl RequestHandler {
   pub fn init(request_rx: mpsc::Receiver<Message>, sources: Sources) -> Self {
     Self { request_rx,
            sources }
@@ -119,7 +121,26 @@ impl MessageHandler {
   pub fn run(mut self) {
     tokio::spawn(async move {
       while let Some(message) = self.request_rx.recv().await {
-        info!(?message);
+        let Message::Request { request_type, source_id, .. } =
+          message.clone() else {
+            panic!("message received by RequestHandler not a request");
+          };
+
+        match request_type {
+          RequestType::SourceRequest => {
+            let sources = self.sources.lock().await;
+            if let Some(source_id) = source_id {
+              sources[&source_id].clone().send(message).await.unwrap();
+            } else {
+              for (_, source_tx) in sources.iter() {
+                source_tx.send(message.clone()).await.unwrap();
+              }
+            }
+          }
+          RequestType::KnowledgeRequest => {
+            unimplemented!();
+          }
+        }
       }
     });
   }

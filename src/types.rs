@@ -85,6 +85,50 @@ impl Message {
                      values,
                      rule_result }
   }
+
+  pub fn new_request(request_type: RequestType,
+                     fn_name: &str,
+                     source_id: Option<usize>,
+                     timestamp: usize,
+                     params: HashMap<String, f64>,
+                     response_tx: mpsc::Sender<Message>)
+                     -> Self {
+    let fn_name = fn_name.to_owned();
+    Self::Request { request_type,
+                    fn_name,
+                    source_id,
+                    timestamp,
+                    params,
+                    response_tx }
+  }
+
+  pub fn new_source_request(fn_name: &str,
+                            source_id: Option<usize>,
+                            timestamp: usize,
+                            params: HashMap<String, f64>,
+                            response_tx: mpsc::Sender<Message>)
+                            -> Self {
+    Self::new_request(RequestType::SourceRequest,
+                      fn_name,
+                      source_id,
+                      timestamp,
+                      params,
+                      response_tx)
+  }
+
+  pub fn new_knowledge_request(fn_name: &str,
+                               source_id: Option<usize>,
+                               timestamp: usize,
+                               params: HashMap<String, f64>,
+                               response_tx: mpsc::Sender<Message>)
+                               -> Self {
+    Self::new_request(RequestType::KnowledgeRequest,
+                      fn_name,
+                      source_id,
+                      timestamp,
+                      params,
+                      response_tx)
+  }
 }
 
 

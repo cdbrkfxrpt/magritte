@@ -9,6 +9,7 @@ use crate::types::{Message, RuleResult};
 
 // use std::collections::HashMap;
 // use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
 
 
 #[derive(Debug)]
@@ -19,24 +20,24 @@ impl Fluent for NeutralFluent {
           _: &Message,
           _: &Memory,
           _: RequestSender)
-          -> Option<RuleResult> {
-    Some(RuleResult::Boolean(true))
+          -> JoinHandle<RuleResult> {
+    tokio::spawn(async move { RuleResult::Boolean(true) })
   }
 }
 
 
-#[derive(Debug)]
-pub struct NoneFluent;
+// #[derive(Debug)]
+// pub struct NoneFluent;
 
-impl Fluent for NoneFluent {
-  fn rule(&self,
-          _: &Message,
-          _: &Memory,
-          _: RequestSender)
-          -> Option<RuleResult> {
-    None
-  }
-}
+// impl Fluent for NoneFluent {
+//   fn rule(&self,
+//           _: &Message,
+//           _: &Memory,
+//           _: RequestSender)
+//           -> Option<RuleResult> {
+//     None
+//   }
+// }
 
 
 // #[derive(Debug)]

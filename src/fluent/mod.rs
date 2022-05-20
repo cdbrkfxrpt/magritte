@@ -5,13 +5,13 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 mod fluents;
-pub use fluents::{NeutralFluent, NoneFluent};
+pub use fluents::NeutralFluent;
 
 use crate::types::{Message, RuleResult};
 
 use circular_queue::CircularQueue;
-use std::collections::HashMap;
-use tokio::sync::mpsc;
+use std::{collections::HashMap, marker::Sync};
+use tokio::{sync::mpsc, task::JoinHandle};
 use tracing::info;
 
 
@@ -19,20 +19,12 @@ type FluentIndex = HashMap<String, Box<dyn Fluent>>;
 type Memory = CircularQueue<Message>;
 type RequestSender = mpsc::Sender<Message>;
 
-pub trait Fluent: Send + core::fmt::Debug {
+pub trait Fluent: Send + core::fmt::Debug + Sync {
   fn rule(&self,
           message: &Message,
           memory: &Memory,
           request_tx: RequestSender)
-          -> Option<RuleResult>;
-
-  // fn send(&self, message: Message, request_tx: RequestSender) {
-  //   tokio::spawn(async move {
-  //     request_tx.send(message).await.unwrap();
-  //   });
-  // }
-
-  // fn request(&self, fluent_name: &str, from_source: Option<usize>, )
+          -> JoinHandle<RuleResult>;
 }
 
 
@@ -47,7 +39,7 @@ pub fn build_index() -> FluentIndex {
 
 
 #[derive(Debug)]
-pub struct FluentBase<T: 'static + Send + ?Sized + Fluent> {
+pub struct FluentBase<T: 'static + Send + ?Sized + Sync + Fluent> {
   source_id:  usize,
   name:       String,
   fluent:     Box<T>,
@@ -57,7 +49,7 @@ pub struct FluentBase<T: 'static + Send + ?Sized + Fluent> {
   memory:     Memory,
 }
 
-impl<T: 'static + Send + ?Sized + Fluent> FluentBase<T> {
+impl<T: 'static + Send + ?Sized + Sync + Fluent> FluentBase<T> {
   pub fn init(source_id: usize,
               name: String,
               fluent: Box<T>,
@@ -82,20 +74,33 @@ impl<T: 'static + Send + ?Sized + Fluent> FluentBase<T> {
           Message::Datapoint { .. } => {
             let rule_result =
               self.fluent
-                  .rule(&message, &self.memory, self.request_tx.clone());
+                  .rule(&message, &self.memory, self.request_tx.clone())
+                  .await;
 
             match rule_result {
-              Some(rule_result) => {
+              Ok(rule_result) => {
                 let message =
                   message.to_response(self.name.clone(), rule_result);
 
                 self.memory.push(message.clone());
                 self.sink_tx.send(message).await.unwrap();
               }
-              None => {
+              Err(_) => {
                 info!("no result on {}-{}", self.source_id, self.name);
               }
             }
+          }
+          Message::Request { timestamp,
+                             response_tx,
+                             .. } => {
+            if let Some(response) = self.memory.iter().find(|&r| {
+              let Message::Response { timestamp: ts, .. } = r else {
+                panic!("Message contained in memory is not a Response");
+              };
+              ts == &timestamp
+            }) {
+              response_tx.send(response.clone()).await.unwrap();
+            };
           }
           _ => (),
         }
