@@ -4,7 +4,7 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::{config::FeederConfig, types::Datapoint};
+use crate::{config::FeederConfig, types::Message};
 
 use indoc::indoc;
 use tokio::{sync::mpsc, task::JoinHandle, time};
@@ -15,12 +15,12 @@ use tracing::{error, info};
 #[derive(Debug)]
 pub struct Feeder {
   config: FeederConfig,
-  out_tx: mpsc::Sender<Datapoint>,
+  out_tx: mpsc::Sender<Message>,
 }
 
 
 impl Feeder {
-  pub fn init(config: FeederConfig) -> (Self, mpsc::Receiver<Datapoint>) {
+  pub fn init(config: FeederConfig) -> (Self, mpsc::Receiver<Message>) {
     let (out_tx, out_rx) = mpsc::channel(config.channel_capacity);
     info!("setup of Feeder channel successful");
 
@@ -79,15 +79,19 @@ impl Feeder {
 
       let mut time: usize = 1443650400;
       let mut offset: i64 = 0;
-      let mut datapoint = Datapoint::new(&self.config.query.value_names);
+      let mut datapoint =
+        Message::new_datapoint(0, 0, &self.config.query.value_names);
 
       loop {
         interval.tick().await;
         let rows = db_client.query(&statement, &[&(offset)]).await.unwrap();
 
         for row in rows {
-          datapoint.update(row);
-          if datapoint.timestamp <= time {
+          datapoint.update_datapoint(row);
+          let Message::Datapoint { timestamp, .. } = datapoint else {
+            panic!("working on non-datapoint message");
+          };
+          if timestamp <= time {
             // TODO: fix unwrap
             self.out_tx.send(datapoint.clone()).await.unwrap();
             //

@@ -6,66 +6,97 @@
 use std::collections::HashMap;
 use tokio::sync::mpsc;
 use tokio_postgres::row::Row;
+use tracing::error;
 
 
 #[derive(Clone, Debug)]
 pub enum Message {
-  Data(Datapoint),
-  SourceRequest(Request),
-  KnowledgeRequest(Request),
+  Datapoint {
+    source_id: usize,
+    timestamp: usize,
+    values:    HashMap<String, f64>,
+  },
+  Request {
+    request_type: RequestType,
+    fn_name:      String,
+    source_id:    Option<usize>,
+    timestamp:    usize,
+    params:       HashMap<String, f64>,
+    response_tx:  mpsc::Sender<Message>,
+  },
+  Response {
+    fn_name:     String,
+    source_id:   Option<usize>,
+    timestamp:   usize,
+    values:      HashMap<String, f64>,
+    rule_result: RuleResult,
+  },
 }
 
 
-#[derive(Clone, Debug)]
-pub struct Datapoint {
-  pub source_id: usize,
-  pub timestamp: usize,
-  pub values:    HashMap<String, f64>,
-}
-
-
-impl Datapoint {
-  pub fn new(value_names: &Vec<String>) -> Self {
-    let (source_id, timestamp) = (0, 0);
+impl Message {
+  pub fn new_datapoint(source_id: usize,
+                       timestamp: usize,
+                       value_names: &Vec<String>)
+                       -> Self {
     let mut values = HashMap::new();
     for value_name in value_names {
       values.insert(value_name.to_owned(), 0.0f64);
     }
 
-    Self { source_id,
-           timestamp,
-           values }
+    Self::Datapoint { source_id,
+                      timestamp,
+                      values }
   }
 
-  pub fn update(&mut self, row: Row) {
-    self.source_id = row.get::<&str, i32>("source_id") as usize;
-    self.timestamp = row.get::<&str, i64>("timestamp") as usize;
-    for (value_name, value) in self.values.iter_mut() {
-      *value = row.get(value_name.as_str());
+  pub fn update_datapoint(&mut self, row: Row) {
+    match self {
+      Message::Datapoint { source_id,
+                           timestamp,
+                           values, } => {
+        *source_id = row.get::<&str, i32>("source_id") as usize;
+        *timestamp = row.get::<&str, i64>("timestamp") as usize;
+        for (value_name, value) in values.iter_mut() {
+          *value = row.get(value_name.as_str());
+        }
+      }
+      _ => error!("unable to call update_datapoint on non-Datapoint"),
     }
   }
+
+  pub fn to_response(self, fn_name: String, rule_result: RuleResult) -> Self {
+    let (source_id, timestamp, values) = match self {
+      Message::Datapoint { source_id,
+                           timestamp,
+                           values, } => (Some(source_id), timestamp, values),
+      Message::Request { source_id,
+                         timestamp,
+                         params,
+                         .. } => (source_id, timestamp, params),
+      Message::Response { source_id,
+                          timestamp,
+                          values,
+                          .. } => (source_id, timestamp, values),
+    };
+
+    Self::Response { fn_name,
+                     source_id,
+                     timestamp,
+                     values,
+                     rule_result }
+  }
 }
 
 
 #[derive(Clone, Debug)]
-pub struct Request {
-  pub source_id:   Option<usize>,
-  pub name:        String,
-  pub params:      HashMap<String, f64>,
-  pub response_tx: mpsc::Sender<Response>,
+pub enum RequestType {
+  SourceRequest,
+  KnowledgeRequest,
 }
 
 
 #[derive(Clone, Debug)]
-pub enum Response {
-  Boolean { source_id: usize, value: bool },
-  Numeric { source_id: usize, value: f64 },
-}
-
-
-#[derive(Clone, Debug)]
-pub struct FluentResult {
-  pub datapoint:   Datapoint,
-  pub name:        String,
-  pub description: String,
+pub enum RuleResult {
+  Boolean(bool),
+  Numeric(f64),
 }

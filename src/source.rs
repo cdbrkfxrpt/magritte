@@ -5,7 +5,7 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use crate::{fluent::{build_index, Fluent, FluentBase},
-            types::{FluentResult, Message}};
+            types::Message};
 
 use std::collections::HashMap;
 use tokio::sync::mpsc;
@@ -15,22 +15,22 @@ use tokio::sync::mpsc;
 pub struct Source {
   source_id:  usize,
   source_rx:  mpsc::Receiver<Message>,
-  message_tx: mpsc::Sender<Message>,
-  sink_tx:    mpsc::Sender<FluentResult>,
+  request_tx: mpsc::Sender<Message>,
+  sink_tx:    mpsc::Sender<Message>,
   fluents:    HashMap<String, mpsc::Sender<Message>>,
 }
 
 impl Source {
   pub fn init(source_id: usize,
               source_rx: mpsc::Receiver<Message>,
-              message_tx: mpsc::Sender<Message>,
-              sink_tx: mpsc::Sender<FluentResult>)
+              request_tx: mpsc::Sender<Message>,
+              sink_tx: mpsc::Sender<Message>)
               -> Self {
     let fluents = HashMap::new();
 
     Self { source_id,
            source_rx,
-           message_tx,
+           request_tx,
            sink_tx,
            fluents }
   }
@@ -47,7 +47,7 @@ impl Source {
                                        name,
                                        fluent,
                                        fluent_rx,
-                                       self.message_tx.clone(),
+                                       self.request_tx.clone(),
                                        self.sink_tx.clone()).run();
       }
 
