@@ -90,17 +90,27 @@ impl<T: 'static + Send + ?Sized + Sync + Fluent> FluentBase<T> {
               }
             }
           }
-          Message::Request { timestamp,
+          Message::Request { source_id,
+                             timestamp,
                              response_tx,
                              .. } => {
-            if let Some(response) = self.memory.iter().find(|&r| {
-              let Message::Response { timestamp: ts, .. } = r else {
-                panic!("Message contained in memory is not a Response");
-              };
-              ts == &timestamp
-            }) {
-              response_tx.send(response.clone()).await.unwrap();
-            };
+            let response = if let Some(source_id) = source_id {
+              if source_id == self.source_id {
+                if let Some(response) = self.memory.iter().find(|&r| {
+                  let Message::Response { timestamp: ts, .. } = r else {
+                    panic!("Message from memory is not a Response");
+                  };
+                  ts == &timestamp
+                }) {
+                  Some(response)
+                  // response_tx.send(response.clone()).await.unwrap();
+                } else {
+                  None
+                };
+              } else {
+                None
+              }
+            }
           }
           _ => (),
         }

@@ -8,8 +8,7 @@ use super::{Fluent, Memory, RequestSender};
 use crate::types::{Message, RuleResult};
 
 // use std::collections::HashMap;
-// use tokio::sync::mpsc;
-use tokio::task::JoinHandle;
+use tokio::{sync::mpsc, task::JoinHandle};
 
 
 #[derive(Debug)]
@@ -48,18 +47,20 @@ impl Fluent for NeutralFluent {
 //           message: &Message,
 //           _: &Memory,
 //           request_tx: RequestSender)
-//           -> Option<RuleResult> {
-//     let (tx, mut rx) = mpsc::channel(32);
+//           -> JoinHandle<RuleResult> {
+//     tokio::spawn(async move {
+//       let (tx, mut rx) = mpsc::channel(32);
 
-//     let request = RequestBody::new("neutral_fluent",
-//                                    None,
-//                                    message.timestamp,
-//                                    HashMap::new(),
-//                                    tx.clone());
+//       let Message::Datapoint { source_id, timestamp, values } = message else {
+//         panic!("Message passed to rule is not a Datapoint");
+//       };
 
-//     self.send(message.to_source_request(request), request_tx);
+//       let request = Message::new_source_request("neutral_fluent", None, time)
 
-//     Some(RuleResult::Boolean(true))
+//       self.send(message.to_source_request(request), request_tx);
+
+//       RuleResult::Boolean(true)
+//     })
 //   }
 // }
 
