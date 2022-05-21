@@ -7,8 +7,9 @@
 use super::{Fluent, Memory, RequestSender};
 use crate::types::{Message, RuleResult};
 
-// use std::collections::HashMap;
+use std::collections::HashMap;
 use tokio::{sync::mpsc, task::JoinHandle};
+use tracing::info;
 
 
 #[derive(Debug)]
@@ -39,30 +40,38 @@ impl Fluent for NeutralFluent {
 // }
 
 
-// #[derive(Debug)]
-// pub struct RequestNeutral;
+#[derive(Debug)]
+pub struct RequestNeutral;
 
-// impl Fluent for RequestNeutral {
-//   fn rule(&self,
-//           message: &Message,
-//           _: &Memory,
-//           request_tx: RequestSender)
-//           -> JoinHandle<RuleResult> {
-//     tokio::spawn(async move {
-//       let (tx, mut rx) = mpsc::channel(32);
+impl Fluent for RequestNeutral {
+  fn rule(&self,
+          message: &Message,
+          _: &Memory,
+          request_tx: RequestSender)
+          -> JoinHandle<RuleResult> {
+    let message = message.clone();
+    tokio::spawn(async move {
+      let (response_tx, mut response_rx) = mpsc::channel(32);
 
-//       let Message::Datapoint { source_id, timestamp, values } = message else {
-//         panic!("Message passed to rule is not a Datapoint");
-//       };
+      let Message::Datapoint { timestamp, .. } = message else {
+        panic!("Message passed to rule is not a Datapoint");
+      };
 
-//       let request = Message::new_source_request("neutral_fluent", None, time)
+      let request = Message::new_source_request("neutral_fluent",
+                                                None,
+                                                timestamp.clone(),
+                                                HashMap::new(),
+                                                response_tx);
+      request_tx.send(request).await.unwrap();
 
-//       self.send(message.to_source_request(request), request_tx);
+      while let Some(response) = response_rx.recv().await {
+        info!(?response);
+      }
 
-//       RuleResult::Boolean(true)
-//     })
-//   }
-// }
+      RuleResult::Boolean(true)
+    })
+  }
+}
 
 
 // #[derive(Debug)]

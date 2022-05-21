@@ -5,7 +5,7 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 mod fluents;
-pub use fluents::NeutralFluent;
+pub use fluents::{NeutralFluent, RequestNeutral};
 
 use crate::types::{Message, RuleResult};
 
@@ -33,6 +33,7 @@ pub fn build_index() -> FluentIndex {
 
   fluent_index.insert("neutral_fluent".to_owned(), Box::new(NeutralFluent));
   // fluent_index.insert("none_fluent".to_owned(), Box::new(NoneFluent));
+  fluent_index.insert("request_neutral".to_owned(), Box::new(RequestNeutral));
 
   fluent_index
 }
@@ -94,23 +95,39 @@ impl<T: 'static + Send + ?Sized + Sync + Fluent> FluentBase<T> {
                              timestamp,
                              response_tx,
                              .. } => {
+            // NOTE START
+            //
+            // check if a source_id was passed...
             let response = if let Some(source_id) = source_id {
+              // ... then check if it's the same as "ours"...
               if source_id == self.source_id {
-                if let Some(response) = self.memory.iter().find(|&r| {
+                // ... if so:
+                // search for the matching response and take it, or None
+                self.memory.iter().find(|&r| {
                   let Message::Response { timestamp: ts, .. } = r else {
                     panic!("Message from memory is not a Response");
                   };
                   ts == &timestamp
-                }) {
-                  Some(response)
-                  // response_tx.send(response.clone()).await.unwrap();
-                } else {
-                  None
-                };
+                })
               } else {
-                None
+                // ... if not:
+                // take the latest response we have, or None
+                self.memory.iter().next()
               }
+            } else {
+              // ... and if no source_id was passed at all:
+              // take the latest response we have, or None
+              self.memory.iter().next()
+            };
+
+            // if we found a response we can return, send it.
+            // otherwise everything gets dropped here, the request channel is
+            // closed, and if all fluents do this the requesting entity learns
+            // via all channels being closed that no response is available.
+            if let Some(response) = response {
+              response_tx.send(response.clone()).await.unwrap();
             }
+            // NOTE END
           }
           _ => (),
         }
