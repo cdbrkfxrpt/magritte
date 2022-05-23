@@ -5,17 +5,16 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 mod fluents;
-pub use fluents::{NeutralFluent, RequestNeutral};
+pub use fluents::build_fluents_index;
 
 use crate::types::{Message, RuleResult};
 
 use circular_queue::CircularQueue;
-use std::{collections::HashMap, marker::Sync};
+use std::marker::Sync;
 use tokio::{sync::mpsc, task::JoinHandle};
 use tracing::info;
 
 
-type FluentIndex = HashMap<String, Box<dyn Fluent>>;
 type Memory = CircularQueue<Message>;
 type RequestSender = mpsc::Sender<Message>;
 
@@ -25,17 +24,6 @@ pub trait Fluent: Send + core::fmt::Debug + Sync {
           memory: &Memory,
           request_tx: RequestSender)
           -> JoinHandle<RuleResult>;
-}
-
-
-pub fn build_index() -> FluentIndex {
-  let mut fluent_index: FluentIndex = HashMap::new();
-
-  fluent_index.insert("neutral_fluent".to_owned(), Box::new(NeutralFluent));
-  // fluent_index.insert("none_fluent".to_owned(), Box::new(NoneFluent));
-  fluent_index.insert("request_neutral".to_owned(), Box::new(RequestNeutral));
-
-  fluent_index
 }
 
 
@@ -80,8 +68,8 @@ impl<T: 'static + Send + ?Sized + Sync + Fluent> FluentBase<T> {
 
             match rule_result {
               Ok(rule_result) => {
-                let message =
-                  message.to_response(self.name.clone(), rule_result);
+                let message = message.datapoint_to_response(self.name.clone(),
+                                                            rule_result);
 
                 self.memory.push(message.clone());
                 self.sink_tx.send(message).await.unwrap();

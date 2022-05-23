@@ -4,13 +4,15 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::{config::BrokerConfig,
+use crate::{config::{BrokerConfig, DatabaseConnection},
+            knowledge::build_functions_index,
             source::Source,
-            types::{Message, RequestType}};
+            types::{Message, RequestType, RuleResult}};
 
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{mpsc, Mutex};
-// use tracing::info;
+use tokio_postgres::{types::ToSql, NoTls};
+use tracing::{error, info};
 
 
 type Sources = Arc<Mutex<HashMap<usize, mpsc::Sender<Message>>>>;
@@ -38,7 +40,8 @@ impl Broker {
                                          request_tx.clone(),
                                          sources.clone());
 
-    let request_handler = RequestHandler::init(request_rx, sources.clone());
+    let request_handler =
+      RequestHandler::init(&config.connection, request_rx, sources.clone());
 
     Self { config,
            request_tx,
@@ -108,21 +111,51 @@ impl DataHandler {
 
 #[derive(Debug)]
 pub struct RequestHandler {
+  config:     DatabaseConnection,
   request_rx: mpsc::Receiver<Message>,
   sources:    Sources,
 }
 
 impl RequestHandler {
-  pub fn init(request_rx: mpsc::Receiver<Message>, sources: Sources) -> Self {
-    Self { request_rx,
+  pub fn init(config: &DatabaseConnection,
+              request_rx: mpsc::Receiver<Message>,
+              sources: Sources)
+              -> Self {
+    let config = config.clone();
+    Self { config,
+           request_rx,
            sources }
   }
 
   pub fn run(mut self) {
     tokio::spawn(async move {
+      let dbparams = format!("host={} user={} password={} dbname={}",
+                             self.config.host,
+                             self.config.user,
+                             self.config.password,
+                             self.config.dbname);
+
+      let (db_client, connection) =
+        tokio_postgres::connect(&dbparams, NoTls).await.unwrap();
+
+      info!("database connection successful");
+
+      // task awaits database connection, traces on error
+      tokio::spawn(async move {
+        if let Err(e) = connection.await {
+          error!("connection error: {}", e);
+        }
+      });
+
+      let function_statements = build_functions_index(&db_client).await;
+
       while let Some(message) = self.request_rx.recv().await {
-        let Message::Request { request_type, source_id, .. } =
-          message.clone() else {
+        let Message::Request { request_type,
+                               fn_name,
+                               source_id,
+                               timestamp,
+                               params,
+                               response_tx } = message.clone() else {
             panic!("message received by RequestHandler not a request");
           };
 
@@ -138,7 +171,29 @@ impl RequestHandler {
             }
           }
           RequestType::KnowledgeRequest => {
-            unimplemented!();
+            let statement = function_statements.get(&fn_name).unwrap();
+
+            let rows = db_client.query(statement,
+                                       params.iter()
+                                             .map(|e| e as &(dyn ToSql + Sync))
+                                             .collect::<Vec<_>>()
+                                             .as_slice())
+                                .await
+                                .unwrap();
+
+            for row in rows {
+              let mut values: HashMap<String, f64> = HashMap::new();
+              for col in row.columns() {
+                values.insert(col.name().to_owned(), row.get(col.name()));
+              }
+              let response = Message::new_response(&fn_name,
+                                                   source_id,
+                                                   timestamp,
+                                                   values,
+                                                   RuleResult::Boolean(true));
+
+              response_tx.send(response).await.unwrap();
+            }
           }
         }
       }

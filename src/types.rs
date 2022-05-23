@@ -21,7 +21,7 @@ pub enum Message {
     fn_name:      String,
     source_id:    Option<usize>,
     timestamp:    usize,
-    params:       HashMap<String, f64>,
+    params:       Vec<f64>,
     response_tx:  mpsc::Sender<Message>,
   },
   Response {
@@ -64,19 +64,15 @@ impl Message {
     }
   }
 
-  pub fn to_response(self, fn_name: String, rule_result: RuleResult) -> Self {
+  pub fn datapoint_to_response(self,
+                               fn_name: String,
+                               rule_result: RuleResult)
+                               -> Self {
     let (source_id, timestamp, values) = match self {
       Message::Datapoint { source_id,
                            timestamp,
                            values, } => (Some(source_id), timestamp, values),
-      Message::Request { source_id,
-                         timestamp,
-                         params,
-                         .. } => (source_id, timestamp, params),
-      Message::Response { source_id,
-                          timestamp,
-                          values,
-                          .. } => (source_id, timestamp, values),
+      _ => panic!("only datapoints can be converted to response"),
     };
 
     Self::Response { fn_name,
@@ -90,7 +86,7 @@ impl Message {
                      fn_name: &str,
                      source_id: Option<usize>,
                      timestamp: usize,
-                     params: HashMap<String, f64>,
+                     params: Vec<f64>,
                      response_tx: mpsc::Sender<Message>)
                      -> Self {
     let fn_name = fn_name.to_owned();
@@ -105,7 +101,7 @@ impl Message {
   pub fn new_source_request(fn_name: &str,
                             source_id: Option<usize>,
                             timestamp: usize,
-                            params: HashMap<String, f64>,
+                            params: Vec<f64>,
                             response_tx: mpsc::Sender<Message>)
                             -> Self {
     Self::new_request(RequestType::SourceRequest,
@@ -119,7 +115,7 @@ impl Message {
   pub fn new_knowledge_request(fn_name: &str,
                                source_id: Option<usize>,
                                timestamp: usize,
-                               params: HashMap<String, f64>,
+                               params: Vec<f64>,
                                response_tx: mpsc::Sender<Message>)
                                -> Self {
     Self::new_request(RequestType::KnowledgeRequest,
@@ -128,6 +124,20 @@ impl Message {
                       timestamp,
                       params,
                       response_tx)
+  }
+
+  pub fn new_response(fn_name: &str,
+                      source_id: Option<usize>,
+                      timestamp: usize,
+                      values: HashMap<String, f64>,
+                      rule_result: RuleResult)
+                      -> Self {
+    let fn_name = fn_name.to_owned();
+    Self::Response { fn_name,
+                     source_id,
+                     timestamp,
+                     values,
+                     rule_result }
   }
 }
 

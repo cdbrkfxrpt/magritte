@@ -62,7 +62,6 @@ impl Feeder {
                                   self.config.query.order_by,
                                   self.config.channel_capacity
       );
-      info!(?statement_raw);
 
       let statement = match db_client.prepare(&statement_raw).await {
         Ok(statement) => statement,

@@ -20,6 +20,7 @@ mod broker;
 mod config;
 mod feeder;
 mod fluent;
+mod knowledge;
 mod sink;
 mod source;
 mod types;

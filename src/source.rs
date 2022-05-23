@@ -4,7 +4,7 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::{fluent::{build_index, Fluent, FluentBase},
+use crate::{fluent::{build_fluents_index, Fluent, FluentBase},
             types::Message};
 
 use std::collections::HashMap;
@@ -38,7 +38,7 @@ impl Source {
   pub fn run(mut self) {
     tokio::spawn(async move {
       // initialize and run Fluents
-      for (name, fluent) in build_index() {
+      for (name, fluent) in build_fluents_index() {
         // TODO capacity from config
         let (fluent_tx, fluent_rx) = mpsc::channel(32);
         self.fluents.insert(name.clone(), fluent_tx);
