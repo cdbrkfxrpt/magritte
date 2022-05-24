@@ -16,7 +16,6 @@ pub fn build_fluents_index() -> HashMap<String, Box<dyn Fluent>> {
   let mut fluent_index: HashMap<String, Box<dyn Fluent>> = HashMap::new();
 
   // fluent_index.insert("neutral_fluent".to_owned(), Box::new(NeutralFluent));
-  // fluent_index.insert("none_fluent".to_owned(), Box::new(NoneFluent));
   // fluent_index.insert("request_neutral".to_owned(),
   // Box::new(RequestNeutral));
   fluent_index.insert("near_coast".to_owned(), Box::new(NearCoast));
@@ -37,20 +36,6 @@ impl Fluent for NeutralFluent {
     tokio::spawn(async move { RuleResult::Boolean(true) })
   }
 }
-
-
-// #[derive(Debug)]
-// pub struct NoneFluent;
-
-// impl Fluent for NoneFluent {
-//   fn rule(&self,
-//           _: &Message,
-//           _: &Memory,
-//           _: RequestSender)
-//           -> Option<RuleResult> {
-//     None
-//   }
-// }
 
 
 // #[derive(Debug)]
