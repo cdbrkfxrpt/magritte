@@ -7,6 +7,7 @@
 use indoc::indoc;
 use std::collections::HashMap;
 use tokio_postgres::{Client, Statement};
+// use tracing::info;
 
 
 pub async fn build_functions_index(client: &Client)
@@ -29,9 +30,9 @@ pub async fn build_functions_index(client: &Client)
 
 const DISTANCE_FROM_COASTLINE: &str = indoc! {r#"
   select ST_Distance(
-    ST_Transform('SRID=4326;POINT($1 $2)'::geometry, 3857),
+    ST_Transform(ST_SetSRID(ST_MakePoint($1, $2), 4326), 3857),
     ST_Transform(geom, 3857)
-  )
+  ) as distance
   from
     "geographic_features"."europe_coastline"
   limit 1

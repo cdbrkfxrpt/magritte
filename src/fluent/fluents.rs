@@ -9,13 +9,13 @@ use crate::types::{Message, RuleResult};
 
 use std::collections::HashMap;
 use tokio::{sync::mpsc, task::JoinHandle};
-use tracing::info;
+// use tracing::info;
 
 
 pub fn build_fluents_index() -> HashMap<String, Box<dyn Fluent>> {
   let mut fluent_index: HashMap<String, Box<dyn Fluent>> = HashMap::new();
 
-  fluent_index.insert("neutral_fluent".to_owned(), Box::new(NeutralFluent));
+  // fluent_index.insert("neutral_fluent".to_owned(), Box::new(NeutralFluent));
   // fluent_index.insert("none_fluent".to_owned(), Box::new(NoneFluent));
   // fluent_index.insert("request_neutral".to_owned(),
   // Box::new(RequestNeutral));
@@ -111,16 +111,19 @@ impl Fluent for NearCoast {
                                                         values["lat"]],
                                                    response_tx);
 
+      request_tx.send(request).await.unwrap();
+
       if let Some(response) = response_rx.recv().await {
-        info!(?response);
-        let Message::Response { rule_result, .. } = response else {
+        let Message::Response { values, .. } = response else {
           panic!("something something response panic");
         };
 
-        return rule_result;
+        if values["distance"] <= 300.0 {
+          return RuleResult::Boolean(true);
+        }
       }
 
-      RuleResult::Boolean(true)
+      RuleResult::Boolean(false)
     })
   }
 }

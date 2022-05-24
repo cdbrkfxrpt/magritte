@@ -70,6 +70,7 @@ impl<T: 'static + Send + ?Sized + Sync + Fluent> FluentBase<T> {
               Ok(rule_result) => {
                 let message = message.datapoint_to_response(self.name.clone(),
                                                             rule_result);
+                info!(?message);
 
                 self.memory.push(message.clone());
                 self.sink_tx.send(message).await.unwrap();
