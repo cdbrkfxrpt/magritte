@@ -85,12 +85,14 @@ impl Fluent for NearCoast {
     tokio::spawn(async move {
       let (response_tx, mut response_rx) = mpsc::channel(32);
 
-      let Message::Datapoint { timestamp, values, .. } = message else {
+      let Message::Datapoint { source_id,
+                               timestamp,
+                               values, .. } = message else {
         panic!("Message passed to rule is not a Datapoint");
       };
 
       let request = Message::new_knowledge_request("distance_from_coastline",
-                                                   None,
+                                                   source_id,
                                                    timestamp,
                                                    vec![values["lon"],
                                                         values["lat"]],

@@ -6,7 +6,7 @@
 
 [feeder]
   channel_capacity = 32
-  millis_per_cycle = 1000
+  millis_per_cycle = 100
 
   [feeder.connection]
   host = "localhost"
@@ -37,4 +37,4 @@
   host = "localhost"
   user = "postgres"
   password = "barbershop"
-  dbname = "magritte_results"
+  dbname = "doi105281zenodo1167595"

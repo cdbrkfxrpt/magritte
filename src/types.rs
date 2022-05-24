@@ -26,7 +26,7 @@ pub enum Message {
   },
   Response {
     fn_name:     String,
-    source_id:   Option<usize>,
+    source_id:   usize,
     timestamp:   usize,
     values:      HashMap<String, f64>,
     rule_result: RuleResult,
@@ -71,7 +71,7 @@ impl Message {
     let (source_id, timestamp, values) = match self {
       Message::Datapoint { source_id,
                            timestamp,
-                           values, } => (Some(source_id), timestamp, values),
+                           values, } => (source_id, timestamp, values),
       _ => panic!("only datapoints can be converted to response"),
     };
 
@@ -113,21 +113,21 @@ impl Message {
   }
 
   pub fn new_knowledge_request(fn_name: &str,
-                               source_id: Option<usize>,
+                               source_id: usize,
                                timestamp: usize,
                                params: Vec<f64>,
                                response_tx: mpsc::Sender<Message>)
                                -> Self {
     Self::new_request(RequestType::KnowledgeRequest,
                       fn_name,
-                      source_id,
+                      Some(source_id),
                       timestamp,
                       params,
                       response_tx)
   }
 
   pub fn new_response(fn_name: &str,
-                      source_id: Option<usize>,
+                      source_id: usize,
                       timestamp: usize,
                       values: HashMap<String, f64>,
                       rule_result: RuleResult)

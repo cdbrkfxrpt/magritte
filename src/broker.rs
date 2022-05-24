@@ -135,7 +135,7 @@ impl RequestHandler {
                              self.config.password,
                              self.config.dbname);
 
-      let (db_client, connection) =
+      let (dbclient, connection) =
         tokio_postgres::connect(&dbparams, NoTls).await.unwrap();
 
       info!("database connection successful");
@@ -147,7 +147,7 @@ impl RequestHandler {
         }
       });
 
-      let function_statements = build_functions_index(&db_client).await;
+      let function_statements = build_functions_index(&dbclient).await;
 
       while let Some(message) = self.request_rx.recv().await {
         let Message::Request { request_type,
@@ -173,13 +173,13 @@ impl RequestHandler {
           RequestType::KnowledgeRequest => {
             let statement = function_statements.get(&fn_name).unwrap();
 
-            let rows = db_client.query(statement,
-                                       params.iter()
-                                             .map(|e| e as &(dyn ToSql + Sync))
-                                             .collect::<Vec<_>>()
-                                             .as_slice())
-                                .await
-                                .unwrap();
+            let rows = dbclient.query(statement,
+                                      params.iter()
+                                            .map(|e| e as &(dyn ToSql + Sync))
+                                            .collect::<Vec<_>>()
+                                            .as_slice())
+                               .await
+                               .unwrap();
 
             for row in rows {
               let mut values: HashMap<String, f64> = HashMap::new();
@@ -187,7 +187,10 @@ impl RequestHandler {
                 values.insert(col.name().to_owned(), row.get(col.name()));
               }
               let response = Message::new_response(&fn_name,
-                                                   source_id,
+                                                   // unwrap is safe,
+                                                   // knowledgerequests
+                                                   // always have a source_id
+                                                   source_id.unwrap(),
                                                    timestamp,
                                                    values,
                                                    RuleResult::Boolean(true));

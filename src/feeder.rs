@@ -8,7 +8,7 @@ use crate::{config::FeederConfig, types::Message};
 
 use indoc::indoc;
 use tokio::{sync::mpsc, task::JoinHandle, time};
-use tokio_postgres::NoTls;
+use tokio_postgres as tp;
 use tracing::{error, info};
 
 
@@ -35,8 +35,8 @@ impl Feeder {
                              self.config.connection.password,
                              self.config.connection.dbname);
 
-      let (db_client, connection) =
-        tokio_postgres::connect(&dbparams, NoTls).await.unwrap();
+      let (dbclient, connection) =
+        tp::connect(&dbparams, tp::NoTls).await.unwrap();
 
       info!("database connection successful");
 
@@ -63,7 +63,7 @@ impl Feeder {
                                   self.config.channel_capacity
       );
 
-      let statement = match db_client.prepare(&statement_raw).await {
+      let statement = match dbclient.prepare(&statement_raw).await {
         Ok(statement) => statement,
         Err(err) => {
           drop(self.out_tx);
@@ -83,7 +83,7 @@ impl Feeder {
 
       loop {
         interval.tick().await;
-        let rows = db_client.query(&statement, &[&(offset)]).await.unwrap();
+        let rows = dbclient.query(&statement, &[&(offset)]).await.unwrap();
 
         for row in rows {
           datapoint.update_datapoint(row);
