@@ -4,7 +4,7 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::{config::{BrokerConfig, DatabaseConnection},
+use crate::{config::{Config, DatabaseConnection},
             knowledge::build_functions_index,
             source::Source,
             types::{Message, RequestType, RuleResult}};
@@ -20,7 +20,7 @@ type Sources = Arc<Mutex<HashMap<usize, mpsc::Sender<Message>>>>;
 
 #[derive(Debug)]
 pub struct Broker {
-  config:          BrokerConfig,
+  config:          Config,
   request_tx:      mpsc::Sender<Message>,
   sources:         Sources,
   data_handler:    DataHandler,
@@ -28,11 +28,12 @@ pub struct Broker {
 }
 
 impl Broker {
-  pub fn init(config: BrokerConfig,
+  pub fn init(config: Config,
               feeder_rx: mpsc::Receiver<Message>,
               sink_tx: mpsc::Sender<Message>)
               -> Self {
-    let (request_tx, request_rx) = mpsc::channel(config.channel_capacity);
+    let (request_tx, request_rx) =
+      mpsc::channel(config.broker.channel_capacity);
     let sources = Arc::new(Mutex::new(HashMap::new()));
 
     let data_handler = DataHandler::init(feeder_rx,
@@ -41,7 +42,7 @@ impl Broker {
                                          sources.clone());
 
     let request_handler =
-      RequestHandler::init(&config.connection, request_rx, sources.clone());
+      RequestHandler::init(&config.database, request_rx, sources.clone());
 
     Self { config,
            request_tx,
@@ -51,7 +52,7 @@ impl Broker {
   }
 
   pub fn run(self) {
-    self.data_handler.run(self.config.channel_capacity);
+    self.data_handler.run(self.config.broker.channel_capacity);
     self.request_handler.run();
   }
 }

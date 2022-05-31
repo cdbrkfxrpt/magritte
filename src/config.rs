@@ -10,13 +10,14 @@ use serde::Deserialize;
 use std::fs;
 
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Config {
   #[serde(skip)]
-  pub args:   CommandLineArgs,
-  pub feeder: FeederConfig,
-  pub broker: BrokerConfig,
-  pub sink:   SinkConfig,
+  pub args:     CommandLineArgs,
+  pub database: DatabaseConnection,
+  pub feeder:   FeederConfig,
+  pub broker:   BrokerConfig,
+  pub sink:     SinkConfig,
 }
 
 impl Config {
@@ -32,10 +33,18 @@ impl Config {
 
 
 #[derive(Clone, Debug, Deserialize)]
+pub struct DatabaseConnection {
+  pub host:     String,
+  pub user:     String,
+  pub password: String,
+  pub dbname:   String,
+}
+
+
+#[derive(Clone, Debug, Deserialize)]
 pub struct FeederConfig {
   pub channel_capacity: usize,
   pub millis_per_cycle: u64,
-  pub connection:       DatabaseConnection,
   pub query:            FeederQuery,
 }
 
@@ -52,28 +61,17 @@ pub struct FeederQuery {
 #[derive(Clone, Debug, Deserialize)]
 pub struct BrokerConfig {
   pub channel_capacity: usize,
-  pub connection:       DatabaseConnection,
 }
 
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct SinkConfig {
   pub channel_capacity: usize,
-  pub connection:       DatabaseConnection,
-}
-
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct DatabaseConnection {
-  pub host:     String,
-  pub user:     String,
-  pub password: String,
-  pub dbname:   String,
 }
 
 
 /// Uses the `clap` crate to parse runtime parameters from the command line
-#[derive(Parser, Debug, Default)]
+#[derive(Parser, Clone, Debug, Default)]
 #[clap(author, version, about)]
 pub struct CommandLineArgs {
   /// Set path for config file

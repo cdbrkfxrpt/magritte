@@ -31,9 +31,9 @@ pub async fn build_functions_index(client: &Client)
 const DISTANCE_FROM_COASTLINE: &str = indoc! {r#"
   select ST_Distance(
     ST_Transform(ST_SetSRID(ST_MakePoint($1, $2), 4326), 3857),
-    ST_Transform(geom, 3857)
+    geom
   ) as distance
   from
-    "geographic_features"."europe_coastline"
+    magritte.europe_coastline
   limit 1
 "#};

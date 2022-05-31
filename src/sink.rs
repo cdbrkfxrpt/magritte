@@ -4,7 +4,7 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::{config::SinkConfig,
+use crate::{config::Config,
             types::{Message, RuleResult}};
 
 use indoc::indoc;
@@ -15,13 +15,13 @@ use tracing::{error, info};
 
 #[derive(Debug)]
 pub struct Sink {
-  config:  SinkConfig,
+  config:  Config,
   sink_rx: mpsc::Receiver<Message>,
 }
 
 impl Sink {
-  pub fn init(config: SinkConfig) -> (Self, mpsc::Sender<Message>) {
-    let (sink_tx, sink_rx) = mpsc::channel(config.channel_capacity);
+  pub fn init(config: Config) -> (Self, mpsc::Sender<Message>) {
+    let (sink_tx, sink_rx) = mpsc::channel(config.sink.channel_capacity);
     info!("setup of Sink channel successful");
 
     (Self { config, sink_rx }, sink_tx)
@@ -30,10 +30,10 @@ impl Sink {
   pub fn run(mut self) {
     tokio::spawn(async move {
       let dbparams = format!("host={} user={} password={} dbname={}",
-                             self.config.connection.host,
-                             self.config.connection.user,
-                             self.config.connection.password,
-                             self.config.connection.dbname);
+                             self.config.database.host,
+                             self.config.database.user,
+                             self.config.database.password,
+                             self.config.database.dbname);
 
       let (dbclient, connection) =
         tp::connect(&dbparams, tp::NoTls).await.unwrap();
@@ -43,22 +43,6 @@ impl Sink {
           error!("connection error: {}", e);
         }
       });
-
-      dbclient.batch_execute(indoc! {r#"
-        drop schema if exists magritte cascade;
-        create schema magritte;
-        create table magritte.results (
-          name        text,
-          source_id   serial,
-          timestamp   bigint,
-          rule_result bool,
-          lon         double precision,
-          lat         double precision,
-          speed       double precision
-        );
-        "#})
-              .await
-              .unwrap();
 
       while let Some(message) = self.sink_rx.recv().await {
         info!(?message);

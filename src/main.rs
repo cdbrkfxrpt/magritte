@@ -21,6 +21,7 @@ mod config;
 mod feeder;
 mod fluent;
 mod knowledge;
+mod prep;
 mod sink;
 mod source;
 mod types;
@@ -28,6 +29,7 @@ mod types;
 use broker::Broker;
 use config::Config;
 use feeder::Feeder;
+use prep::run_prepare;
 use sink::Sink;
 
 use eyre::Result;
@@ -52,13 +54,15 @@ async fn main() -> Result<()> {
   let config = Config::new()?;
   info!(?config);
 
+  run_prepare(&config).await?;
+
   let (tx, mut rx) = mpsc::unbounded_channel();
 
   let runner_tx = tx.clone();
   let runner = tokio::spawn(async move {
-    let (sink, sink_tx) = Sink::init(config.sink.clone());
-    let (feeder, feeder_rx) = Feeder::init(config.feeder.clone());
-    let broker = Broker::init(config.broker.clone(), feeder_rx, sink_tx);
+    let (sink, sink_tx) = Sink::init(config.clone());
+    let (feeder, feeder_rx) = Feeder::init(config.clone());
+    let broker = Broker::init(config.clone(), feeder_rx, sink_tx);
 
     sink.run();
     broker.run();

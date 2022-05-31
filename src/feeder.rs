@@ -4,7 +4,7 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::{config::FeederConfig, types::Message};
+use crate::{config::Config, types::Message};
 
 use indoc::indoc;
 use tokio::{sync::mpsc, task::JoinHandle, time};
@@ -14,14 +14,14 @@ use tracing::{error, info};
 
 #[derive(Debug)]
 pub struct Feeder {
-  config: FeederConfig,
+  config: Config,
   out_tx: mpsc::Sender<Message>,
 }
 
 
 impl Feeder {
-  pub fn init(config: FeederConfig) -> (Self, mpsc::Receiver<Message>) {
-    let (out_tx, out_rx) = mpsc::channel(config.channel_capacity);
+  pub fn init(config: Config) -> (Self, mpsc::Receiver<Message>) {
+    let (out_tx, out_rx) = mpsc::channel(config.feeder.channel_capacity);
     info!("setup of Feeder channel successful");
 
     (Self { config, out_tx }, out_rx)
@@ -30,10 +30,10 @@ impl Feeder {
   pub fn run(self) -> JoinHandle<()> {
     tokio::spawn(async move {
       let dbparams = format!("host={} user={} password={} dbname={}",
-                             self.config.connection.host,
-                             self.config.connection.user,
-                             self.config.connection.password,
-                             self.config.connection.dbname);
+                             self.config.database.host,
+                             self.config.database.user,
+                             self.config.database.password,
+                             self.config.database.dbname);
 
       let (dbclient, connection) =
         tp::connect(&dbparams, tp::NoTls).await.unwrap();
@@ -47,21 +47,22 @@ impl Feeder {
         }
       });
 
-      let statement_raw = format!(
-                                  indoc! {r#"
+      let statement_raw =
+        format!(
+                indoc! {r#"
           select {} as "source_id", {} as "timestamp", {}
           from {}
           order by {} asc
           offset $1 rows
           fetch next {} rows only
         "#},
-                                  self.config.query.source_id,
-                                  self.config.query.timestamp,
-                                  self.config.query.value_names.join(", "),
-                                  self.config.query.from_table,
-                                  self.config.query.order_by,
-                                  self.config.channel_capacity
-      );
+                self.config.feeder.query.source_id,
+                self.config.feeder.query.timestamp,
+                self.config.feeder.query.value_names.join(", "),
+                self.config.feeder.query.from_table,
+                self.config.feeder.query.order_by,
+                self.config.feeder.channel_capacity
+        );
 
       let statement = match dbclient.prepare(&statement_raw).await {
         Ok(statement) => statement,
@@ -74,12 +75,13 @@ impl Feeder {
 
       let mut interval =
         time::interval(time::Duration::from_millis(self.config
+                                                       .feeder
                                                        .millis_per_cycle));
 
       let mut time: usize = 1443650400;
       let mut offset: i64 = 0;
       let mut datapoint =
-        Message::new_datapoint(0, 0, &self.config.query.value_names);
+        Message::new_datapoint(0, 0, &self.config.feeder.query.value_names);
 
       loop {
         interval.tick().await;
