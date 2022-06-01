@@ -13,7 +13,7 @@ dbname = "doi105281zenodo1167595"
 
 [feeder]
   channel_capacity = 32
-  millis_per_cycle = 10
+  millis_per_cycle = 100
 
   [feeder.query]
   source_id = "mmsi"

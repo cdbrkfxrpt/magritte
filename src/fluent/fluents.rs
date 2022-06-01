@@ -15,61 +15,12 @@ use tokio::{sync::mpsc, task::JoinHandle};
 pub fn build_fluents_index() -> HashMap<String, Box<dyn Fluent>> {
   let mut fluent_index: HashMap<String, Box<dyn Fluent>> = HashMap::new();
 
+  fluent_index.insert("nearCoast".to_owned(), Box::new(NearCoast));
+  fluent_index.insert("highSpeedNC".to_owned(), Box::new(HighSpeedNearCoast));
   // fluent_index.insert("neutral_fluent".to_owned(), Box::new(NeutralFluent));
-  // fluent_index.insert("request_neutral".to_owned(),
-  // Box::new(RequestNeutral));
-  fluent_index.insert("near_coast".to_owned(), Box::new(NearCoast));
 
   fluent_index
 }
-
-
-#[derive(Debug)]
-pub struct NeutralFluent;
-
-impl Fluent for NeutralFluent {
-  fn rule(&self,
-          _: &Message,
-          _: &Memory,
-          _: RequestSender)
-          -> JoinHandle<RuleResult> {
-    tokio::spawn(async move { RuleResult::Boolean(true) })
-  }
-}
-
-
-// #[derive(Debug)]
-// pub struct RequestNeutral;
-
-// impl Fluent for RequestNeutral {
-//   fn rule(&self,
-//           message: &Message,
-//           _: &Memory,
-//           request_tx: RequestSender)
-//           -> JoinHandle<RuleResult> {
-//     let message = message.clone();
-//     tokio::spawn(async move {
-//       let (response_tx, mut response_rx) = mpsc::channel(32);
-
-//       let Message::Datapoint { timestamp, .. } = message else {
-//         panic!("Message passed to rule is not a Datapoint");
-//       };
-
-//       let request = Message::new_source_request("neutral_fluent",
-//                                                 None,
-//                                                 timestamp.clone(),
-//                                                 Vec::new(),
-//                                                 response_tx);
-//       request_tx.send(request).await.unwrap();
-
-//       while let Some(response) = response_rx.recv().await {
-//         info!(?response);
-//       }
-
-//       RuleResult::Boolean(true)
-//     })
-//   }
-// }
 
 
 #[derive(Debug)]
@@ -87,7 +38,7 @@ impl Fluent for NearCoast {
 
       let Message::Datapoint { source_id,
                                timestamp,
-                               values, .. } = message else {
+                               values } = message else {
         panic!("Message passed to rule is not a Datapoint");
       };
 
@@ -102,7 +53,7 @@ impl Fluent for NearCoast {
 
       if let Some(response) = response_rx.recv().await {
         let Message::Response { values, .. } = response else {
-          panic!("something something response panic");
+          panic!("something something Response panic");
         };
 
         if values["distance"] <= 300.0 {
@@ -112,6 +63,65 @@ impl Fluent for NearCoast {
 
       RuleResult::Boolean(false)
     })
+  }
+}
+
+
+#[derive(Debug)]
+pub struct HighSpeedNearCoast;
+
+impl Fluent for HighSpeedNearCoast {
+  fn rule(&self,
+          message: &Message,
+          _: &Memory,
+          request_tx: RequestSender)
+          -> JoinHandle<RuleResult> {
+    let message = message.clone();
+    tokio::spawn(async move {
+      let (response_tx, mut response_rx) = mpsc::channel(32);
+
+      let Message::Datapoint { source_id, timestamp, values } = message else {
+        panic!("Message passed to rule is not a Datapoint");
+      };
+
+      let request = Message::new_source_request("nearCoast",
+                                                Some(source_id),
+                                                timestamp,
+                                                Vec::new(),
+                                                response_tx);
+
+      request_tx.send(request).await.unwrap();
+
+      if let Some(response) = response_rx.recv().await {
+        let Message::Response { rule_result, .. } = response else {
+          panic!("something something Response panic");
+        };
+
+        let RuleResult::Boolean(t) = rule_result else {
+          panic!("something something RuleResult panic");
+        };
+
+        if t && values["speed"] > 5.0 {
+          return RuleResult::Boolean(true);
+        }
+      }
+
+      RuleResult::Boolean(false)
+    })
+  }
+}
+
+
+#[derive(Debug)]
+pub struct NeutralFluent;
+
+impl Fluent for NeutralFluent {
+  fn rule(&self,
+          _: &Message,
+          _: &Memory,
+          _: RequestSender)
+          -> JoinHandle<RuleResult> {
+    tokio::spawn(async move { RuleResult::Boolean(true) })
   }
 }
 
