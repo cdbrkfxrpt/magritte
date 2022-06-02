@@ -14,7 +14,10 @@ pub async fn build_functions_index(client: &Client)
                                    -> HashMap<String, Statement> {
   let mut statements = HashMap::new();
 
-  let raw_statements = [("distance_from_coastline", DISTANCE_FROM_COASTLINE)];
+  let raw_statements = [
+    ("distance_from_coastline", DISTANCE_FROM_COASTLINE),
+    ("ship_type", SHIP_TYPE)
+  ];
 
   for raw_statement in raw_statements {
     let statement = match client.prepare(raw_statement.1).await {
@@ -35,5 +38,13 @@ const DISTANCE_FROM_COASTLINE: &str = indoc! {r#"
   ) as distance
   from
     magritte.europe_coastline
+  limit 1
+"#};
+
+
+const SHIP_TYPE: &str = indoc! {r#"
+  select shiptype
+  from ais_data.static_ships
+  where sourcemmsi = $1
   limit 1
 "#};

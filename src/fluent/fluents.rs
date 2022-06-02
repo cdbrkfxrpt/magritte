@@ -97,11 +97,11 @@ impl Fluent for HighSpeedNearCoast {
           panic!("something something Response panic");
         };
 
-        let RuleResult::Boolean(t) = rule_result else {
+        let RuleResult::Boolean(near_coast) = rule_result else {
           panic!("something something RuleResult panic");
         };
 
-        if t && values["speed"] > 5.0 {
+        if near_coast && values["speed"] > 5.0 {
           return RuleResult::Boolean(true);
         }
       }
