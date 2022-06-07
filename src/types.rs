@@ -125,20 +125,23 @@ pub struct FluentResult {
   pub timestamp: usize,
   pub name:      String,
   pub holds:     bool,
+  pub params:    Option<Vec<f64>>,
 }
 
 impl FluentResult {
   pub fn new(source_id: usize,
              timestamp: usize,
              name: &str,
-             holds: bool)
+             holds: bool,
+             params: Option<Vec<f64>>)
              -> Self {
     let name = name.to_owned();
 
     Self { source_id,
            timestamp,
            name,
-           holds }
+           holds,
+           params }
   }
 }
 

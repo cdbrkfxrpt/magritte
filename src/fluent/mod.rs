@@ -23,7 +23,7 @@ pub trait Fluent: Send + core::fmt::Debug + Sync {
           datapoint: Datapoint,
           memory: &Memory,
           request_tx: RequestSender)
-          -> JoinHandle<bool>;
+          -> JoinHandle<(bool, Option<Vec<f64>>)>;
 }
 
 
@@ -61,25 +61,26 @@ impl<T: 'static + Send + ?Sized + Sync + Fluent> FluentBase<T> {
       while let Some(message) = self.fluent_rx.recv().await {
         match message {
           BrokerMessage::Data(datapoint) => {
-            let holds =
+            let rule_result =
               self.fluent
                   .rule(datapoint.clone(),
                         &self.memory,
                         self.request_tx.clone())
                   .await;
 
-            match holds {
-              Ok(holds) => {
+            match rule_result {
+              Ok((holds, params)) => {
                 let fluent_result = FluentResult::new(datapoint.source_id,
                                                       datapoint.timestamp,
                                                       &self.name,
-                                                      holds);
-                info!(?fluent_result);
+                                                      holds,
+                                                      params);
+                // info!(?fluent_result);
 
                 self.memory.push(fluent_result.clone());
 
                 let only_holding_to_sink = false; // TODO take from config
-                if holds && only_holding_to_sink {
+                if holds || !only_holding_to_sink {
                   self.sink_tx.send(fluent_result).await.unwrap();
                 }
               }
@@ -118,6 +119,8 @@ impl<T: 'static + Send + ?Sized + Sync + Fluent> FluentBase<T> {
             // otherwise everything gets dropped here, the request channel is
             // closed, and if all fluents do this the requesting entity learns
             // via all channels being closed that no response is available.
+            info!(?fluent_result);
+            info!(?fluent_request);
             if let Some(fluent_result) = fluent_result {
               fluent_request.response_tx
                             .send(fluent_result.clone())

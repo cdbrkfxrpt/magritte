@@ -14,10 +14,9 @@ pub async fn build_functions_index(client: &Client)
                                    -> HashMap<String, Statement> {
   let mut statements = HashMap::new();
 
-  let raw_statements = [
-    ("distance_from_coastline", DISTANCE_FROM_COASTLINE),
-    ("ship_type", SHIP_TYPE)
-  ];
+  let raw_statements = [("distance_from_coastline", DISTANCE_FROM_COASTLINE),
+                        ("distance_from_ports", DISTANCE_FROM_PORTS),
+                        ("ship_type", SHIP_TYPE)];
 
   for raw_statement in raw_statements {
     let statement = match client.prepare(raw_statement.1).await {
@@ -31,6 +30,7 @@ pub async fn build_functions_index(client: &Client)
   statements
 }
 
+
 const DISTANCE_FROM_COASTLINE: &str = indoc! {r#"
   select ST_Distance(
     ST_Transform(ST_SetSRID(ST_MakePoint($1, $2), 4326), 3857),
@@ -39,6 +39,16 @@ const DISTANCE_FROM_COASTLINE: &str = indoc! {r#"
   from
     magritte.europe_coastline
   limit 1
+"#};
+
+
+const DISTANCE_FROM_PORTS: &str = indoc! {r#"
+  select ST_Distance(
+    ST_Transform(ST_SetSRID(ST_MakePoint($1, $2), 4326), 3857),
+    ST_Transform(geom, 3857)
+  ) as distance
+  from
+    ports.ports_of_brittany
 "#};
 
 

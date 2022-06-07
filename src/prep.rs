@@ -31,13 +31,10 @@ pub async fn run_prepare(config: &Config) -> Result<()> {
     drop schema if exists magritte cascade;
     create schema magritte;
     create table magritte.results (
-      name        text,
       source_id   serial,
       timestamp   bigint,
-      rule_result bool,
-      lon         double precision,
-      lat         double precision,
-      speed       double precision
+      fluent_name text,
+      holds       bool
     );
     select gid, shape_leng, ST_Transform(geom, 3857) as geom
     into   magritte.europe_coastline
