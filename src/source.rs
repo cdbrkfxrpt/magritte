@@ -5,7 +5,7 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use crate::{fluent::{build_fluents_index, Fluent, FluentBase},
-            types::Message};
+            types::{BrokerMessage, BrokerRequest, FluentResult}};
 
 use std::collections::HashMap;
 use tokio::sync::mpsc;
@@ -14,17 +14,17 @@ use tokio::sync::mpsc;
 #[derive(Debug)]
 pub struct Source {
   source_id:  usize,
-  source_rx:  mpsc::Receiver<Message>,
-  request_tx: mpsc::Sender<Message>,
-  sink_tx:    mpsc::Sender<Message>,
-  fluents:    HashMap<String, mpsc::Sender<Message>>,
+  source_rx:  mpsc::Receiver<BrokerMessage>,
+  request_tx: mpsc::Sender<BrokerRequest>,
+  sink_tx:    mpsc::Sender<FluentResult>,
+  fluents:    HashMap<String, mpsc::Sender<BrokerMessage>>,
 }
 
 impl Source {
   pub fn init(source_id: usize,
-              source_rx: mpsc::Receiver<Message>,
-              request_tx: mpsc::Sender<Message>,
-              sink_tx: mpsc::Sender<Message>)
+              source_rx: mpsc::Receiver<BrokerMessage>,
+              request_tx: mpsc::Sender<BrokerRequest>,
+              sink_tx: mpsc::Sender<FluentResult>)
               -> Self {
     let fluents = HashMap::new();
 
@@ -52,18 +52,19 @@ impl Source {
       }
 
       // handle incoming messages
-      while let Some(message) = self.source_rx.recv().await {
-        let matcher_msg = message.clone();
+      while let Some(broker_message) = self.source_rx.recv().await {
+        let matcher_msg = broker_message.clone();
         match matcher_msg {
-          Message::Datapoint { .. } => {
+          BrokerMessage::Data(_) => {
             for (_, fluent_tx) in &self.fluents {
-              fluent_tx.send(message.clone()).await.unwrap();
+              fluent_tx.send(broker_message.clone()).await.unwrap();
             }
           }
-          Message::Request { fn_name, .. } => {
-            self.fluents[&fn_name].send(message).await.unwrap();
+          BrokerMessage::FluentReq(fluent_request) => {
+            self.fluents[&fluent_request.name].send(broker_message)
+                                              .await
+                                              .unwrap();
           }
-          _ => (),
         }
       }
     });

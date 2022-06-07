@@ -5,36 +5,18 @@
 
 use std::collections::HashMap;
 use tokio::sync::mpsc;
-use tokio_postgres::row::Row;
-use tracing::error;
+use tokio_postgres::{row::Row, types::ToSql};
+// use tracing::error;
 
 
 #[derive(Clone, Debug)]
-pub enum Message {
-  Datapoint {
-    source_id: usize,
-    timestamp: usize,
-    values:    HashMap<String, f64>,
-  },
-  Request {
-    request_type: RequestType,
-    fn_name:      String,
-    source_id:    Option<usize>,
-    timestamp:    usize,
-    params:       Vec<f64>,
-    response_tx:  mpsc::Sender<Message>,
-  },
-  Response {
-    fn_name:     String,
-    source_id:   usize,
-    timestamp:   usize,
-    values:      HashMap<String, f64>,
-    rule_result: RuleResult,
-  },
+pub struct Datapoint {
+  pub source_id: usize,
+  pub timestamp: usize,
+  pub values:    HashMap<String, f64>,
 }
 
-
-impl Message {
+impl Datapoint {
   pub fn new_datapoint(source_id: usize,
                        timestamp: usize,
                        value_names: &Vec<String>)
@@ -44,113 +26,132 @@ impl Message {
       values.insert(value_name.to_owned(), 0.0f64);
     }
 
-    Self::Datapoint { source_id,
-                      timestamp,
-                      values }
+    Self { source_id,
+           timestamp,
+           values }
   }
 
   pub fn update_datapoint(&mut self, row: Row) {
-    match self {
-      Message::Datapoint { source_id,
-                           timestamp,
-                           values, } => {
-        *source_id = row.get::<&str, i32>("source_id") as usize;
-        *timestamp = row.get::<&str, i64>("timestamp") as usize;
-        for (value_name, value) in values.iter_mut() {
-          *value = row.get(value_name.as_str());
-        }
-      }
-      _ => error!("unable to call update_datapoint on non-Datapoint"),
+    self.source_id = row.get::<&str, i32>("source_id") as usize;
+    self.timestamp = row.get::<&str, i64>("timestamp") as usize;
+    for (value_name, value) in self.values.iter_mut() {
+      *value = row.get(value_name.as_str());
     }
   }
+}
 
-  pub fn datapoint_to_response(self,
-                               fn_name: String,
-                               rule_result: RuleResult)
-                               -> Self {
-    let (source_id, timestamp, values) = match self {
-      Message::Datapoint { source_id,
-                           timestamp,
-                           values, } => (source_id, timestamp, values),
-      _ => panic!("only datapoints can be converted to response"),
-    };
 
-    Self::Response { fn_name,
-                     source_id,
-                     timestamp,
-                     values,
-                     rule_result }
+#[derive(Clone, Debug)]
+pub struct FluentRequest {
+  pub source_id:   Option<usize>,
+  pub timestamp:   usize,
+  pub name:        String,
+  pub params:      Option<Vec<f64>>,
+  pub response_tx: mpsc::Sender<FluentResult>,
+}
+
+impl FluentRequest {
+  pub fn new(source_id: Option<usize>,
+             timestamp: usize,
+             name: &str,
+             params: Option<Vec<f64>>,
+             response_tx: mpsc::Sender<FluentResult>)
+             -> Self {
+    let name = name.to_owned();
+
+    Self { source_id,
+           timestamp,
+           name,
+           params,
+           response_tx }
   }
+}
 
-  pub fn new_request(request_type: RequestType,
-                     fn_name: &str,
-                     source_id: Option<usize>,
-                     timestamp: usize,
-                     params: Vec<f64>,
-                     response_tx: mpsc::Sender<Message>)
-                     -> Self {
-    let fn_name = fn_name.to_owned();
-    Self::Request { request_type,
-                    fn_name,
-                    source_id,
-                    timestamp,
-                    params,
-                    response_tx }
+
+#[derive(Debug)]
+pub struct KnowledgeRequest {
+  pub name:        String,
+  pub source_id:   usize,
+  pub timestamp:   usize,
+  pub params:      Vec<Box<dyn ToSql + Sync + Send>>,
+  pub response_tx: mpsc::Sender<Response>,
+}
+
+impl KnowledgeRequest {
+  pub fn new(name: &str,
+             source_id: usize,
+             timestamp: usize,
+             params: Vec<Box<dyn ToSql + Sync + Send>>,
+             response_tx: mpsc::Sender<Response>)
+             -> Self {
+    let name = name.to_owned();
+
+    Self { name,
+           source_id,
+           timestamp,
+           params,
+           response_tx }
   }
+}
 
-  pub fn new_source_request(fn_name: &str,
-                            source_id: Option<usize>,
-                            timestamp: usize,
-                            params: Vec<f64>,
-                            response_tx: mpsc::Sender<Message>)
-                            -> Self {
-    Self::new_request(RequestType::SourceRequest,
-                      fn_name,
-                      source_id,
-                      timestamp,
-                      params,
-                      response_tx)
-  }
 
-  pub fn new_knowledge_request(fn_name: &str,
-                               source_id: usize,
-                               timestamp: usize,
-                               params: Vec<f64>,
-                               response_tx: mpsc::Sender<Message>)
-                               -> Self {
-    Self::new_request(RequestType::KnowledgeRequest,
-                      fn_name,
-                      Some(source_id),
-                      timestamp,
-                      params,
-                      response_tx)
-  }
+#[derive(Debug)]
+pub struct Response {
+  pub name:      String,
+  pub source_id: usize,
+  pub timestamp: usize,
+  pub values:    Row,
+}
 
-  pub fn new_response(fn_name: &str,
-                      source_id: usize,
-                      timestamp: usize,
-                      values: HashMap<String, f64>,
-                      rule_result: RuleResult)
-                      -> Self {
-    let fn_name = fn_name.to_owned();
-    Self::Response { fn_name,
-                     source_id,
-                     timestamp,
-                     values,
-                     rule_result }
+impl Response {
+  pub fn new(name: &str,
+             source_id: usize,
+             timestamp: usize,
+             values: Row)
+             -> Self {
+    let name = name.to_owned();
+
+    Self { name,
+           source_id,
+           timestamp,
+           values }
   }
 }
 
 
 #[derive(Clone, Debug)]
-pub enum RequestType {
-  SourceRequest,
-  KnowledgeRequest,
+pub struct FluentResult {
+  pub source_id: usize,
+  pub timestamp: usize,
+  pub name:      String,
+  pub holds:     bool,
+}
+
+impl FluentResult {
+  pub fn new(source_id: usize,
+             timestamp: usize,
+             name: &str,
+             holds: bool)
+             -> Self {
+    let name = name.to_owned();
+
+    Self { source_id,
+           timestamp,
+           name,
+           holds }
+  }
 }
 
 
 #[derive(Clone, Debug)]
-pub enum RuleResult {
-  Boolean(bool),
-  Numeric(f64),
+pub enum BrokerMessage {
+  Data(Datapoint),
+  FluentReq(FluentRequest),
+}
+
+
+#[derive(Debug)]
+pub enum BrokerRequest {
+  KnowledgeReq(KnowledgeRequest),
+  FluentReq(FluentRequest),
 }

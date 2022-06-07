@@ -7,7 +7,11 @@
 use crate::{config::{Config, DatabaseConnection},
             knowledge::build_functions_index,
             source::Source,
-            types::{Message, RequestType, RuleResult}};
+            types::{BrokerMessage,
+                    BrokerRequest,
+                    Datapoint,
+                    FluentResult,
+                    Response}};
 
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{mpsc, Mutex};
@@ -15,13 +19,13 @@ use tokio_postgres::{types::ToSql, NoTls};
 use tracing::{error, info};
 
 
-type Sources = Arc<Mutex<HashMap<usize, mpsc::Sender<Message>>>>;
+type Sources = Arc<Mutex<HashMap<usize, mpsc::Sender<BrokerMessage>>>>;
 
 
 #[derive(Debug)]
 pub struct Broker {
   config:          Config,
-  request_tx:      mpsc::Sender<Message>,
+  request_tx:      mpsc::Sender<BrokerRequest>,
   sources:         Sources,
   data_handler:    DataHandler,
   request_handler: RequestHandler,
@@ -29,8 +33,8 @@ pub struct Broker {
 
 impl Broker {
   pub fn init(config: Config,
-              feeder_rx: mpsc::Receiver<Message>,
-              sink_tx: mpsc::Sender<Message>)
+              feeder_rx: mpsc::Receiver<Datapoint>,
+              sink_tx: mpsc::Sender<FluentResult>)
               -> Self {
     let (request_tx, request_rx) =
       mpsc::channel(config.broker.channel_capacity);
@@ -60,16 +64,16 @@ impl Broker {
 
 #[derive(Debug)]
 pub struct DataHandler {
-  feeder_rx:  mpsc::Receiver<Message>,
-  sink_tx:    mpsc::Sender<Message>,
-  request_tx: mpsc::Sender<Message>,
+  feeder_rx:  mpsc::Receiver<Datapoint>,
+  sink_tx:    mpsc::Sender<FluentResult>,
+  request_tx: mpsc::Sender<BrokerRequest>,
   sources:    Sources,
 }
 
 impl DataHandler {
-  pub fn init(feeder_rx: mpsc::Receiver<Message>,
-              sink_tx: mpsc::Sender<Message>,
-              request_tx: mpsc::Sender<Message>,
+  pub fn init(feeder_rx: mpsc::Receiver<Datapoint>,
+              sink_tx: mpsc::Sender<FluentResult>,
+              request_tx: mpsc::Sender<BrokerRequest>,
               sources: Sources)
               -> Self {
     Self { feeder_rx,
@@ -81,29 +85,27 @@ impl DataHandler {
   pub fn run(mut self, channel_capacity: usize) {
     tokio::spawn(async move {
       // source spawning and data sending task
-      while let Some(message) = self.feeder_rx.recv().await {
+      while let Some(datapoint) = self.feeder_rx.recv().await {
         // unwrapping Mutex lock is safe per Mutex docs
         let mut sources = self.sources.lock().await;
 
-        let Message::Datapoint { source_id, .. } = message else {
-          panic!("message sent from Feeder not a datapoint");
-        };
-
-        let source_tx = if !sources.contains_key(&source_id) {
+        let source_tx = if !sources.contains_key(&datapoint.source_id) {
           let (source_tx, source_rx) = mpsc::channel(channel_capacity);
 
-          sources.insert(source_id, source_tx.clone());
-          Source::init(source_id,
+          sources.insert(datapoint.source_id, source_tx.clone());
+          Source::init(datapoint.source_id,
                        source_rx,
                        self.request_tx.clone(),
                        self.sink_tx.clone()).run();
 
           source_tx
         } else {
-          sources[&source_id].clone()
+          sources[&datapoint.source_id].clone()
         };
 
-        source_tx.send(message).await.unwrap();
+        source_tx.send(BrokerMessage::Data(datapoint))
+                 .await
+                 .unwrap();
       }
     });
   }
@@ -113,13 +115,13 @@ impl DataHandler {
 #[derive(Debug)]
 pub struct RequestHandler {
   config:     DatabaseConnection,
-  request_rx: mpsc::Receiver<Message>,
+  request_rx: mpsc::Receiver<BrokerRequest>,
   sources:    Sources,
 }
 
 impl RequestHandler {
   pub fn init(config: &DatabaseConnection,
-              request_rx: mpsc::Receiver<Message>,
+              request_rx: mpsc::Receiver<BrokerRequest>,
               sources: Sources)
               -> Self {
     let config = config.clone();
@@ -150,53 +152,38 @@ impl RequestHandler {
 
       let function_statements = build_functions_index(&dbclient).await;
 
-      while let Some(message) = self.request_rx.recv().await {
-        let Message::Request { request_type,
-                               fn_name,
-                               source_id,
-                               timestamp,
-                               params,
-                               response_tx } = message.clone() else {
-            panic!("message received by RequestHandler not a request");
-          };
-
-        match request_type {
-          RequestType::SourceRequest => {
+      while let Some(request) = self.request_rx.recv().await {
+        match request {
+          BrokerRequest::FluentReq(fluent_request) => {
             let sources = self.sources.lock().await;
-            if let Some(source_id) = source_id {
-              sources[&source_id].clone().send(message).await.unwrap();
+            let outmsg = BrokerMessage::FluentReq(fluent_request.clone());
+
+            if let Some(source_id) = fluent_request.source_id {
+              sources[&source_id].clone().send(outmsg).await.unwrap();
             } else {
               for (_, source_tx) in sources.iter() {
-                source_tx.send(message.clone()).await.unwrap();
+                source_tx.send(outmsg.clone()).await.unwrap();
               }
             }
           }
-          RequestType::KnowledgeRequest => {
-            let statement = function_statements.get(&fn_name).unwrap();
+          BrokerRequest::KnowledgeReq(knowledge_request) => {
+            let statement =
+              function_statements.get(&knowledge_request.name).unwrap();
+            let params =
+              knowledge_request.params
+                               .iter()
+                               .map(|e| e.as_ref() as &(dyn ToSql + Sync))
+                               .collect::<Vec<_>>();
 
-            let rows = dbclient.query(statement,
-                                      params.iter()
-                                            .map(|e| e as &(dyn ToSql + Sync))
-                                            .collect::<Vec<_>>()
-                                            .as_slice())
-                               .await
-                               .unwrap();
-
+            let rows =
+              dbclient.query(statement, params.as_slice()).await.unwrap();
             for row in rows {
-              let mut values: HashMap<String, f64> = HashMap::new();
-              for col in row.columns() {
-                values.insert(col.name().to_owned(), row.get(col.name()));
-              }
-              let response = Message::new_response(&fn_name,
-                                                   // unwrap is safe,
-                                                   // knowledgerequests
-                                                   // always have a source_id
-                                                   source_id.unwrap(),
-                                                   timestamp,
-                                                   values,
-                                                   RuleResult::Boolean(true));
+              let response = Response::new(&knowledge_request.name,
+                                           knowledge_request.source_id,
+                                           knowledge_request.timestamp,
+                                           row);
 
-              response_tx.send(response).await.unwrap();
+              knowledge_request.response_tx.send(response).await.unwrap();
             }
           }
         }

@@ -43,7 +43,7 @@ const DISTANCE_FROM_COASTLINE: &str = indoc! {r#"
 
 
 const SHIP_TYPE: &str = indoc! {r#"
-  select shiptype
+  select shiptype as ship_type
   from ais_data.static_ships
   where sourcemmsi = $1
   limit 1
