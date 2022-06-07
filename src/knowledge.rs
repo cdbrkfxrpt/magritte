@@ -7,7 +7,6 @@
 use indoc::indoc;
 use std::collections::HashMap;
 use tokio_postgres::{Client, Statement};
-// use tracing::info;
 
 
 pub async fn build_functions_index(client: &Client)

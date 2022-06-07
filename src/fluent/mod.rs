@@ -75,8 +75,6 @@ impl<T: 'static + Send + ?Sized + Sync + Fluent> FluentBase<T> {
                                                       &self.name,
                                                       holds,
                                                       params);
-                // info!(?fluent_result);
-
                 self.memory.push(fluent_result.clone());
 
                 let only_holding_to_sink = false; // TODO take from config
@@ -119,8 +117,6 @@ impl<T: 'static + Send + ?Sized + Sync + Fluent> FluentBase<T> {
             // otherwise everything gets dropped here, the request channel is
             // closed, and if all fluents do this the requesting entity learns
             // via all channels being closed that no response is available.
-            info!(?fluent_result);
-            info!(?fluent_request);
             if let Some(fluent_result) = fluent_result {
               fluent_request.response_tx
                             .send(fluent_result.clone())

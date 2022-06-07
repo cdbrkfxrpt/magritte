@@ -6,7 +6,6 @@
 use std::collections::HashMap;
 use tokio::sync::mpsc;
 use tokio_postgres::{row::Row, types::ToSql};
-// use tracing::error;
 
 
 #[derive(Clone, Debug)]
@@ -68,6 +67,33 @@ impl FluentRequest {
 }
 
 
+#[derive(Clone, Debug)]
+pub struct FluentResult {
+  pub source_id: usize,
+  pub timestamp: usize,
+  pub name:      String,
+  pub holds:     bool,
+  pub params:    Option<Vec<f64>>,
+}
+
+impl FluentResult {
+  pub fn new(source_id: usize,
+             timestamp: usize,
+             name: &str,
+             holds: bool,
+             params: Option<Vec<f64>>)
+             -> Self {
+    let name = name.to_owned();
+
+    Self { source_id,
+           timestamp,
+           name,
+           holds,
+           params }
+  }
+}
+
+
 #[derive(Debug)]
 pub struct KnowledgeRequest {
   pub name:        String,
@@ -115,33 +141,6 @@ impl Response {
            source_id,
            timestamp,
            values }
-  }
-}
-
-
-#[derive(Clone, Debug)]
-pub struct FluentResult {
-  pub source_id: usize,
-  pub timestamp: usize,
-  pub name:      String,
-  pub holds:     bool,
-  pub params:    Option<Vec<f64>>,
-}
-
-impl FluentResult {
-  pub fn new(source_id: usize,
-             timestamp: usize,
-             name: &str,
-             holds: bool,
-             params: Option<Vec<f64>>)
-             -> Self {
-    let name = name.to_owned();
-
-    Self { source_id,
-           timestamp,
-           name,
-           holds,
-           params }
   }
 }
 

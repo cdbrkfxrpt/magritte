@@ -12,7 +12,6 @@ use crate::types::{BrokerRequest,
 
 use std::collections::HashMap;
 use tokio::{sync::mpsc, task::JoinHandle};
-use tracing::info;
 
 
 pub fn build_fluents_index() -> HashMap<String, Box<dyn Fluent>> {
@@ -180,7 +179,6 @@ impl Fluent for RendezVousConditions {
         // !isTug && !isPilot
         let type_codes = vec![31, 32, 50, 52];
         if type_codes.contains(&response.values.get("ship_type")) {
-          info!("is Tug or Pilot");
           return (false, None);
         }
       }
@@ -258,8 +256,8 @@ impl Fluent for RendezVous {
                 .await
                 .unwrap();
 
+      let mut rendez_vous_partners = 0.0_f64;
       while let Some(fluent_result) = response_rx.recv().await {
-        info!("got response from {:?}", fluent_result.source_id);
         if fluent_result.holds {
           let other_params = fluent_result.params.unwrap();
           let (other_lon, other_lat) = (other_params[0], other_params[1]);
@@ -278,9 +276,13 @@ impl Fluent for RendezVous {
           let distance = radius_earth_km * central_angle;
 
           if distance < 50.0 {
-            return (true, None);
+            rendez_vous_partners += 1.0_f64;
           }
         }
+      }
+
+      if rendez_vous_partners > 0.0 {
+        return (true, Some(vec![rendez_vous_partners]));
       }
 
       (false, None)
