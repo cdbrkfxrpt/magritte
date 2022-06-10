@@ -43,9 +43,10 @@ pub struct DatabaseConnection {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct FeederConfig {
-  pub channel_capacity: usize,
-  pub millis_per_cycle: u64,
-  pub query:            FeederQuery,
+  pub channel_capacity:  usize,
+  pub millis_per_cycle:  u64,
+  pub datapoints_to_run: usize,
+  pub query:             FeederQuery,
 }
 
 #[derive(Clone, Debug, Deserialize)]

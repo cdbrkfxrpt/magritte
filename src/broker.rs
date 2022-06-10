@@ -13,13 +13,13 @@ use crate::{config::{Config, DatabaseConnection},
                     FluentResult,
                     Response}};
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{mpsc, Mutex};
 use tokio_postgres::{types::ToSql, NoTls};
 use tracing::{error, info};
 
 
-type Sources = Arc<Mutex<BTreeMap<usize, mpsc::Sender<BrokerMessage>>>>;
+type Sources = Arc<Mutex<HashMap<usize, mpsc::Sender<BrokerMessage>>>>;
 
 
 #[derive(Debug)]
@@ -38,7 +38,7 @@ impl Broker {
               -> Self {
     let (request_tx, request_rx) =
       mpsc::channel(config.broker.channel_capacity);
-    let sources = Arc::new(Mutex::new(BTreeMap::new()));
+    let sources = Arc::new(Mutex::new(HashMap::new()));
 
     let data_handler = DataHandler::init(feeder_rx,
                                          sink_tx,
@@ -86,6 +86,8 @@ impl DataHandler {
     tokio::spawn(async move {
       // source spawning and data sending task
       while let Some(datapoint) = self.feeder_rx.recv().await {
+        let source = datapoint.source_id;
+
         // unwrapping Mutex lock is safe per Mutex docs
         let mut sources = self.sources.lock().await;
 
@@ -103,9 +105,13 @@ impl DataHandler {
           sources[&datapoint.source_id].clone()
         };
 
+        info!("found or inserted source {}", source);
+
         source_tx.send(BrokerMessage::Data(datapoint))
                  .await
                  .unwrap();
+
+        info!("sent datapoint to source {}", source);
       }
     });
   }

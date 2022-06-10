@@ -79,13 +79,15 @@ impl Feeder {
                                                        .millis_per_cycle));
 
       let mut time: usize = 1443650400;
-      let mut offset: i64 = 0;
+      let mut offset: usize = 0;
       let mut datapoint =
         Datapoint::new_datapoint(0, 0, &self.config.feeder.query.value_names);
 
       loop {
         interval.tick().await;
-        let rows = dbclient.query(&statement, &[&(offset)]).await.unwrap();
+        let rows = dbclient.query(&statement, &[&(offset as i64)])
+                           .await
+                           .unwrap();
 
         for row in rows {
           datapoint.update_datapoint(row);
@@ -95,8 +97,12 @@ impl Feeder {
             //
             offset += 1;
           }
+          // if offset == self.config.feeder.datapoints_to_run {
+          //   return ();
+          // }
         }
         time += 1;
+        // info!("ran {} datapoints", offset);
       }
     })
   }

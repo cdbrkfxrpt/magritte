@@ -39,7 +39,7 @@ impl Fluent for NearCoast {
           request_tx: RequestSender)
           -> JoinHandle<(bool, Option<Vec<f64>>)> {
     tokio::spawn(async move {
-      let (response_tx, mut response_rx) = mpsc::channel(32);
+      let (response_tx, mut response_rx) = mpsc::channel(1);
 
       let request =
         KnowledgeRequest::new("distance_from_coastline",
@@ -75,7 +75,7 @@ impl Fluent for NearPorts {
           request_tx: RequestSender)
           -> JoinHandle<(bool, Option<Vec<f64>>)> {
     tokio::spawn(async move {
-      let (response_tx, mut response_rx) = mpsc::channel(32);
+      let (response_tx, mut response_rx) = mpsc::channel(1);
 
       let request =
         KnowledgeRequest::new("distance_from_ports",
@@ -111,7 +111,7 @@ impl Fluent for HighSpeedNearCoast {
           request_tx: RequestSender)
           -> JoinHandle<(bool, Option<Vec<f64>>)> {
     tokio::spawn(async move {
-      let (response_tx, mut response_rx) = mpsc::channel(32);
+      let (response_tx, mut response_rx) = mpsc::channel(1);
 
       let request = FluentRequest::new(Some(datapoint.source_id),
                                        datapoint.timestamp,
@@ -151,7 +151,7 @@ impl Fluent for RendezVousConditions {
       }
 
       // second we check if we're a Pilot or Tug vessel
-      let (response_tx, mut response_rx) = mpsc::channel(32);
+      let (response_tx, mut response_rx) = mpsc::channel(1);
       let request = KnowledgeRequest::new("ship_type",
                                           datapoint.source_id,
                                           datapoint.timestamp,
@@ -184,7 +184,7 @@ impl Fluent for RendezVousConditions {
       }
 
       // then check if we are near coast or near ports
-      let (response_tx, mut response_rx) = mpsc::channel(32);
+      let (response_tx, mut response_rx) = mpsc::channel(1);
       let request = FluentRequest::new(Some(datapoint.source_id),
                                        datapoint.timestamp,
                                        "nearPorts",
@@ -200,7 +200,7 @@ impl Fluent for RendezVousConditions {
         None => false,
       };
 
-      let (response_tx, mut response_rx) = mpsc::channel(32);
+      let (response_tx, mut response_rx) = mpsc::channel(1);
       let request = FluentRequest::new(Some(datapoint.source_id),
                                        datapoint.timestamp,
                                        "nearCoast",
