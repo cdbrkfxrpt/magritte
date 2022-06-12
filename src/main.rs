@@ -60,9 +60,12 @@ async fn main() -> Result<()> {
 
   let runner_tx = tx.clone();
   let runner = tokio::spawn(async move {
-    let (sink, sink_tx) = Sink::init(config.clone());
-    let (feeder, feeder_rx) = Feeder::init(config.clone());
-    let broker = Broker::init(config.clone(), feeder_rx, sink_tx);
+    let (broker, data_tx, sink_rx) = Broker::init(&config);
+
+    let feeder = Feeder::init(data_tx,
+                              &config.database_credentials,
+                              &config.feeder_config);
+    let sink = Sink::init(sink_rx, &config.database_credentials);
 
     sink.run();
     broker.run();

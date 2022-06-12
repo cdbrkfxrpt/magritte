@@ -14,10 +14,10 @@ use tracing::error;
 
 pub async fn run_prepare(config: &Config) -> Result<()> {
   let dbparams = format!("host={} user={} password={} dbname={}",
-                         config.database.host,
-                         config.database.user,
-                         config.database.password,
-                         config.database.dbname);
+                         config.database_credentials.host,
+                         config.database_credentials.user,
+                         config.database_credentials.password,
+                         config.database_credentials.dbname);
 
   let (dbclient, connection) = tp::connect(&dbparams, tp::NoTls).await?;
 

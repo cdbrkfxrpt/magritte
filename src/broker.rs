@@ -4,7 +4,7 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::{config::{Config, DatabaseConnection},
+use crate::{config::{Config, DatabaseCredentials},
             knowledge::build_functions_index,
             source::Source,
             types::{BrokerMessage,
@@ -13,105 +13,80 @@ use crate::{config::{Config, DatabaseConnection},
                     FluentResult,
                     Response}};
 
-use std::{collections::HashMap, sync::Arc};
-use tokio::sync::{mpsc, Mutex};
+use std::collections::HashMap;
+use tokio::sync::mpsc;
 use tokio_postgres::{types::ToSql, NoTls};
 use tracing::{error, info};
 
 
-type Sources = Arc<Mutex<HashMap<usize, mpsc::Sender<BrokerMessage>>>>;
+type InnerSender = mpsc::Sender<(Option<usize>, BrokerMessage)>;
+type InnerReceiver = mpsc::Receiver<(Option<usize>, BrokerMessage)>;
 
 
 #[derive(Debug)]
 pub struct Broker {
-  config:          Config,
-  request_tx:      mpsc::Sender<BrokerRequest>,
-  sources:         Sources,
+  inner_rx:        InnerReceiver,
+  sink_tx:         mpsc::Sender<FluentResult>,
   data_handler:    DataHandler,
+  request_tx:      mpsc::Sender<BrokerRequest>,
   request_handler: RequestHandler,
+  source_capacity: usize,
+  sources:         HashMap<usize, mpsc::Sender<BrokerMessage>>,
 }
 
 impl Broker {
-  pub fn init(config: Config,
-              feeder_rx: mpsc::Receiver<Datapoint>,
-              sink_tx: mpsc::Sender<FluentResult>)
-              -> Self {
-    let (request_tx, request_rx) =
-      mpsc::channel(config.broker.channel_capacity);
-    let sources = Arc::new(Mutex::new(HashMap::new()));
+  pub fn init(
+    config: &Config)
+    -> (Self, mpsc::Sender<Datapoint>, mpsc::Receiver<FluentResult>) {
+    let (inner_tx, inner_rx) = mpsc::channel(config.channel_capacities.inner);
+    let (sink_tx, sink_rx) = mpsc::channel(config.channel_capacities.sink);
 
-    let data_handler = DataHandler::init(feeder_rx,
-                                         sink_tx,
-                                         request_tx.clone(),
-                                         sources.clone());
+    let (request_handler, request_tx) =
+      RequestHandler::init(inner_tx.clone(),
+                           config.channel_capacities.request,
+                           &config.database_credentials);
 
-    let request_handler =
-      RequestHandler::init(&config.database, request_rx, sources.clone());
+    let (data_handler, data_tx) =
+      DataHandler::init(inner_tx.clone(), config.channel_capacities.data);
 
-    Self { config,
-           request_tx,
-           sources,
-           data_handler,
-           request_handler }
+    (Self { inner_rx,
+            sink_tx,
+            data_handler,
+            request_tx,
+            request_handler,
+            source_capacity: config.channel_capacities.source,
+            sources: HashMap::new() },
+     data_tx,
+     sink_rx)
   }
 
-  pub fn run(self) {
-    self.data_handler.run(self.config.broker.channel_capacity);
-    self.request_handler.run();
-  }
-}
-
-
-#[derive(Debug)]
-pub struct DataHandler {
-  feeder_rx:  mpsc::Receiver<Datapoint>,
-  sink_tx:    mpsc::Sender<FluentResult>,
-  request_tx: mpsc::Sender<BrokerRequest>,
-  sources:    Sources,
-}
-
-impl DataHandler {
-  pub fn init(feeder_rx: mpsc::Receiver<Datapoint>,
-              sink_tx: mpsc::Sender<FluentResult>,
-              request_tx: mpsc::Sender<BrokerRequest>,
-              sources: Sources)
-              -> Self {
-    Self { feeder_rx,
-           sink_tx,
-           request_tx,
-           sources }
-  }
-
-  pub fn run(mut self, channel_capacity: usize) {
+  pub fn run(mut self) {
     tokio::spawn(async move {
-      // source spawning and data sending task
-      while let Some(datapoint) = self.feeder_rx.recv().await {
-        let source = datapoint.source_id;
+      self.request_handler.run();
+      self.data_handler.run();
 
-        // unwrapping Mutex lock is safe per Mutex docs
-        let mut sources = self.sources.lock().await;
+      while let Some((receiver, broker_message)) = self.inner_rx.recv().await {
+        if let Some(source_id) = receiver {
+          let source_tx = if !self.sources.contains_key(&source_id) {
+            let (source_tx, source_rx) = mpsc::channel(self.source_capacity);
 
-        let source_tx = if !sources.contains_key(&datapoint.source_id) {
-          let (source_tx, source_rx) = mpsc::channel(channel_capacity);
+            self.sources.insert(source_id, source_tx.clone());
+            Source::init(source_id,
+                         source_rx,
+                         self.request_tx.clone(),
+                         self.sink_tx.clone()).run();
 
-          sources.insert(datapoint.source_id, source_tx.clone());
-          Source::init(datapoint.source_id,
-                       source_rx,
-                       self.request_tx.clone(),
-                       self.sink_tx.clone()).run();
+            source_tx
+          } else {
+            self.sources[&source_id].clone()
+          };
 
-          source_tx
+          source_tx.send(broker_message).await.unwrap();
         } else {
-          sources[&datapoint.source_id].clone()
-        };
-
-        info!("found or inserted source {}", source);
-
-        source_tx.send(BrokerMessage::Data(datapoint))
-                 .await
-                 .unwrap();
-
-        info!("sent datapoint to source {}", source);
+          for (_, source_tx) in self.sources.iter() {
+            source_tx.send(broker_message.clone()).await.unwrap();
+          }
+        }
       }
     });
   }
@@ -120,29 +95,32 @@ impl DataHandler {
 
 #[derive(Debug)]
 pub struct RequestHandler {
-  config:     DatabaseConnection,
-  request_rx: mpsc::Receiver<BrokerRequest>,
-  sources:    Sources,
+  inner_tx:             InnerSender,
+  database_credentials: DatabaseCredentials,
+  request_rx:           mpsc::Receiver<BrokerRequest>,
 }
 
 impl RequestHandler {
-  pub fn init(config: &DatabaseConnection,
-              request_rx: mpsc::Receiver<BrokerRequest>,
-              sources: Sources)
-              -> Self {
-    let config = config.clone();
-    Self { config,
-           request_rx,
-           sources }
+  pub fn init(inner_tx: InnerSender,
+              channel_capacity: usize,
+              database_credentials: &DatabaseCredentials)
+              -> (Self, mpsc::Sender<BrokerRequest>) {
+    let database_credentials = database_credentials.clone();
+    let (request_tx, request_rx) = mpsc::channel(channel_capacity);
+
+    (Self { inner_tx,
+            database_credentials,
+            request_rx },
+     request_tx)
   }
 
   pub fn run(mut self) {
     tokio::spawn(async move {
       let dbparams = format!("host={} user={} password={} dbname={}",
-                             self.config.host,
-                             self.config.user,
-                             self.config.password,
-                             self.config.dbname);
+                             self.database_credentials.host,
+                             self.database_credentials.user,
+                             self.database_credentials.password,
+                             self.database_credentials.dbname);
 
       let (dbclient, connection) =
         tokio_postgres::connect(&dbparams, NoTls).await.unwrap();
@@ -161,16 +139,11 @@ impl RequestHandler {
       while let Some(request) = self.request_rx.recv().await {
         match request {
           BrokerRequest::FluentReq(fluent_request) => {
-            let sources = self.sources.lock().await;
-            let outmsg = BrokerMessage::FluentReq(fluent_request.clone());
-
-            if let Some(source_id) = fluent_request.source_id {
-              sources[&source_id].clone().send(outmsg).await.unwrap();
-            } else {
-              for (_, source_tx) in sources.iter() {
-                source_tx.send(outmsg.clone()).await.unwrap();
-              }
-            }
+            self.inner_tx
+                .send((fluent_request.source_id,
+                       BrokerMessage::FluentReq(fluent_request)))
+                .await
+                .unwrap();
           }
           BrokerRequest::KnowledgeReq(knowledge_request) => {
             let statement =
@@ -193,6 +166,35 @@ impl RequestHandler {
             }
           }
         }
+      }
+    });
+  }
+}
+
+
+#[derive(Debug)]
+pub struct DataHandler {
+  inner_tx: InnerSender,
+  data_rx:  mpsc::Receiver<Datapoint>,
+}
+
+impl DataHandler {
+  pub fn init(inner_tx: InnerSender,
+              channel_capacity: usize)
+              -> (Self, mpsc::Sender<Datapoint>) {
+    let (data_tx, data_rx) = mpsc::channel(channel_capacity);
+
+    (Self { inner_tx, data_rx }, data_tx)
+  }
+
+  pub fn run(mut self) {
+    tokio::spawn(async move {
+      // source spawning and data sending task
+      while let Some(datapoint) = self.data_rx.recv().await {
+        self.inner_tx
+            .send((Some(datapoint.source_id), BrokerMessage::Data(datapoint)))
+            .await
+            .unwrap();
       }
     });
   }

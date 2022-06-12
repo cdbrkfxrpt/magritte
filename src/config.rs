@@ -13,11 +13,10 @@ use std::fs;
 #[derive(Clone, Debug, Deserialize)]
 pub struct Config {
   #[serde(skip)]
-  pub args:     CommandLineArgs,
-  pub database: DatabaseConnection,
-  pub feeder:   FeederConfig,
-  pub broker:   BrokerConfig,
-  pub sink:     SinkConfig,
+  pub command_line_args:    CommandLineArgs,
+  pub database_credentials: DatabaseCredentials,
+  pub channel_capacities:   ChannelCapacities,
+  pub feeder_config:        FeederConfig,
 }
 
 impl Config {
@@ -26,14 +25,14 @@ impl Config {
     let mut conf: Self =
       toml::from_str(&fs::read_to_string(args.config_path.clone())?)?;
 
-    conf.args = args;
+    conf.command_line_args = args;
     Ok(conf)
   }
 }
 
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct DatabaseConnection {
+pub struct DatabaseCredentials {
   pub host:     String,
   pub user:     String,
   pub password: String,
@@ -42,8 +41,17 @@ pub struct DatabaseConnection {
 
 
 #[derive(Clone, Debug, Deserialize)]
+pub struct ChannelCapacities {
+  pub inner:   usize,
+  pub data:    usize,
+  pub request: usize,
+  pub source:  usize,
+  pub sink:    usize,
+}
+
+
+#[derive(Clone, Debug, Deserialize)]
 pub struct FeederConfig {
-  pub channel_capacity:  usize,
   pub millis_per_cycle:  u64,
   pub datapoints_to_run: usize,
   pub query:             FeederQuery,
@@ -56,18 +64,6 @@ pub struct FeederQuery {
   pub value_names: Vec<String>,
   pub from_table:  String,
   pub order_by:    String,
-}
-
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct BrokerConfig {
-  pub channel_capacity: usize,
-}
-
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct SinkConfig {
-  pub channel_capacity: usize,
 }
 
 

@@ -4,27 +4,26 @@
 # received a copy of this license along with the source code. If that is not
 # the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-[database]
+[database_credentials]
 host = "localhost"
 user = "postgres"
 password = "barbershop"
 dbname = "doi105281zenodo1167595"
 
+[channel_capacities]
+inner = 256
+data = 32
+request = 32
+source = 32
+sink = 32
 
-[feeder]
-  channel_capacity = 32
-  millis_per_cycle = 1
-  datapoints_to_run = 1000
+[feeder_config]
+millis_per_cycle = 10
+datapoints_to_run = 1000
 
-  [feeder.query]
+  [feeder_config.query]
   source_id = "mmsi"
   timestamp = "ts"
   value_names = ["lon", "lat", "speed"]
   from_table = "ais_data.dynamic_ships"
   order_by = "id"
-
-[broker]
-  channel_capacity = 32
-
-[sink]
-  channel_capacity = 32

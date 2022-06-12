@@ -4,7 +4,7 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::{config::Config, types::FluentResult};
+use crate::{config::DatabaseCredentials, types::FluentResult};
 
 use indoc::indoc;
 use tokio::sync::mpsc;
@@ -14,25 +14,27 @@ use tracing::{error, info};
 
 #[derive(Debug)]
 pub struct Sink {
-  config:  Config,
-  sink_rx: mpsc::Receiver<FluentResult>,
+  sink_rx:              mpsc::Receiver<FluentResult>,
+  database_credentials: DatabaseCredentials,
 }
 
 impl Sink {
-  pub fn init(config: Config) -> (Self, mpsc::Sender<FluentResult>) {
-    let (sink_tx, sink_rx) = mpsc::channel(config.sink.channel_capacity);
-    info!("setup of Sink channel successful");
+  pub fn init(sink_rx: mpsc::Receiver<FluentResult>,
+              database_credentials: &DatabaseCredentials)
+              -> Self {
+    let database_credentials = database_credentials.clone();
 
-    (Self { config, sink_rx }, sink_tx)
+    Self { sink_rx,
+           database_credentials }
   }
 
   pub fn run(mut self) {
     tokio::spawn(async move {
       let dbparams = format!("host={} user={} password={} dbname={}",
-                             self.config.database.host,
-                             self.config.database.user,
-                             self.config.database.password,
-                             self.config.database.dbname);
+                             self.database_credentials.host,
+                             self.database_credentials.user,
+                             self.database_credentials.password,
+                             self.database_credentials.dbname);
 
       let (dbclient, connection) =
         tp::connect(&dbparams, tp::NoTls).await.unwrap();
