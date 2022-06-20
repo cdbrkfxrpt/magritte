@@ -42,11 +42,10 @@ pub struct DatabaseCredentials {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct ChannelCapacities {
-  pub inner:   usize,
   pub data:    usize,
-  pub request: usize,
-  pub source:  usize,
   pub sink:    usize,
+  pub source:  usize,
+  pub request: usize,
 }
 
 

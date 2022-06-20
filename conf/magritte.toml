@@ -11,14 +11,13 @@ password = "barbershop"
 dbname = "doi105281zenodo1167595"
 
 [channel_capacities]
-inner = 256
 data = 32
-request = 32
-source = 32
 sink = 32
+source = 32
+request = 32
 
 [feeder_config]
-millis_per_cycle = 10
+millis_per_cycle = 1
 datapoints_to_run = 1000
 
   [feeder_config.query]

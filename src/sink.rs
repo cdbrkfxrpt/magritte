@@ -46,7 +46,7 @@ impl Sink {
       });
 
       while let Some(fluent_result) = self.sink_rx.recv().await {
-        info!(?fluent_result);
+        // info!(?fluent_result);
         dbclient.execute(
                          indoc! {r#"
             insert into

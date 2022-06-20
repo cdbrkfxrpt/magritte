@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 use tokio::sync::mpsc;
 use tokio_postgres::{row::Row, types::ToSql};
+use tracing::info;
 
 
 #[derive(Clone, Debug)]

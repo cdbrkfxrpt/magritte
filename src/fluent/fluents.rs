@@ -12,6 +12,7 @@ use crate::types::{BrokerRequest,
 
 use std::collections::HashMap;
 use tokio::{sync::mpsc, task::JoinHandle};
+use tracing::info;
 
 
 pub fn build_fluents_index() -> HashMap<String, Box<dyn Fluent>> {
@@ -49,6 +50,7 @@ impl Fluent for NearCoast {
                                    Box::new(datapoint.values["lat"])],
                               response_tx);
 
+      // info!("request_tx capacity: {}", request_tx.capacity());
       request_tx.send(BrokerRequest::KnowledgeReq(request))
                 .await
                 .unwrap();
@@ -75,7 +77,7 @@ impl Fluent for NearPorts {
           request_tx: RequestSender)
           -> JoinHandle<(bool, Option<Vec<f64>>)> {
     tokio::spawn(async move {
-      let (response_tx, mut response_rx) = mpsc::channel(1);
+      let (response_tx, mut response_rx) = mpsc::channel(16);
 
       let request =
         KnowledgeRequest::new("distance_from_ports",
@@ -85,6 +87,7 @@ impl Fluent for NearPorts {
                                    Box::new(datapoint.values["lat"])],
                               response_tx);
 
+      // info!("request_tx capacity: {}", request_tx.capacity());
       request_tx.send(BrokerRequest::KnowledgeReq(request))
                 .await
                 .unwrap();
@@ -119,6 +122,7 @@ impl Fluent for HighSpeedNearCoast {
                                        None,
                                        response_tx);
 
+      // info!("request_tx capacity: {}", request_tx.capacity());
       request_tx.send(BrokerRequest::FluentReq(request))
                 .await
                 .unwrap();
@@ -159,6 +163,7 @@ impl Fluent for RendezVousConditions {
                                                         as i32)],
                                           response_tx);
 
+      // info!("request_tx capacity: {}", request_tx.capacity());
       request_tx.send(BrokerRequest::KnowledgeReq(request))
                 .await
                 .unwrap();
@@ -191,6 +196,7 @@ impl Fluent for RendezVousConditions {
                                        None,
                                        response_tx.clone());
 
+      // info!("request_tx capacity: {}", request_tx.capacity());
       request_tx.send(BrokerRequest::FluentReq(request))
                 .await
                 .unwrap();
@@ -207,6 +213,7 @@ impl Fluent for RendezVousConditions {
                                        None,
                                        response_tx.clone());
 
+      // info!("request_tx capacity: {}", request_tx.capacity());
       request_tx.send(BrokerRequest::FluentReq(request))
                 .await
                 .unwrap();
@@ -246,45 +253,75 @@ impl Fluent for RendezVous {
         (datapoint.values["lon"], datapoint.values["lat"]);
       let this_lat_rad = this_lat.to_radians();
 
+      if datapoint.source_id == 228051000 {
+        info!("rendezVous: converted lon, lat to radians");
+      }
+
       let (response_tx, mut response_rx) = mpsc::channel(32);
       let request = FluentRequest::new(None,
                                        datapoint.timestamp,
                                        "rendezVousConditions",
                                        None,
-                                       response_tx.clone());
+                                       response_tx);
+
+      if datapoint.source_id == 228051000 {
+        info!("rendezVous: request_tx capacity: {}", request_tx.capacity());
+      }
       request_tx.send(BrokerRequest::FluentReq(request))
                 .await
                 .unwrap();
 
+      if datapoint.source_id == 228051000 {
+        info!("rendezVous: sent request for rendezVousConditions");
+      }
+
       let mut rendez_vous_partners = 0.0_f64;
       while let Some(fluent_result) = response_rx.recv().await {
-        if fluent_result.holds {
-          let other_params = fluent_result.params.unwrap();
-          let (other_lon, other_lat) = (other_params[0], other_params[1]);
-          let other_lat_rad = other_lat.to_radians();
+        if datapoint.source_id == 228051000 {
+          info!("rendezVous: received rendezVousConditions from {}",
+                fluent_result.source_id);
+        }
+        let other_params = fluent_result.params.unwrap();
+        let (other_lon, other_lat) = (other_params[0], other_params[1]);
+        let other_lat_rad = other_lat.to_radians();
 
-          let d_lon = (this_lon - other_lon).to_radians();
-          let d_lat = (this_lat - other_lat).to_radians();
+        let d_lon = (this_lon - other_lon).to_radians();
+        let d_lat = (this_lat - other_lat).to_radians();
 
-          let central_angle_inner = (d_lat / 2.0).sin().powi(2)
-                                    + this_lat_rad.cos()
-                                      * other_lat_rad.cos()
-                                      * (d_lon / 2.0).sin().powi(2);
+        let central_angle_inner = (d_lat / 2.0).sin().powi(2)
+                                  + this_lat_rad.cos()
+                                    * other_lat_rad.cos()
+                                    * (d_lon / 2.0).sin().powi(2);
 
-          let central_angle = 2.0 * central_angle_inner.sqrt().asin();
+        let central_angle = 2.0 * central_angle_inner.sqrt().asin();
 
-          let distance = radius_earth_km * central_angle;
+        let distance = radius_earth_km * central_angle;
 
-          if distance < 50.0 {
-            rendez_vous_partners += 1.0_f64;
-          }
+        if datapoint.source_id == 228051000 {
+          info!("rendezVous: calculated distance from {}: {}",
+                fluent_result.source_id, distance);
+        }
+
+        if distance < 50.0 {
+          rendez_vous_partners += 1.0_f64;
         }
       }
 
+      if datapoint.source_id == 228051000 {
+        info!("rendezVous: found {} rendezVous partners",
+              rendez_vous_partners);
+      }
+
       if rendez_vous_partners > 0.0 {
+        if datapoint.source_id == 228051000 {
+          info!("rendezVous: returning true");
+        }
         return (true, Some(vec![rendez_vous_partners]));
       }
 
+      if datapoint.source_id == 228051000 {
+        info!("rendezVous: returning false");
+      }
       (false, None)
     })
   }

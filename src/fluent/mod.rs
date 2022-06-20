@@ -61,12 +61,18 @@ impl<T: 'static + Send + ?Sized + Sync + Fluent> FluentBase<T> {
       while let Some(message) = self.fluent_rx.recv().await {
         match message {
           BrokerMessage::Data(datapoint) => {
+            if self.source_id == 228051000 && self.name == "rendezVous" {
+              info!("rendezVous: evaluating for 228051000...");
+            }
             let rule_result =
               self.fluent
                   .rule(datapoint.clone(),
                         &self.memory,
                         self.request_tx.clone())
                   .await;
+            if self.source_id == 228051000 && self.name == "rendezVous" {
+              info!("rendezVous: evaluated for 228051000.");
+            }
 
             match rule_result {
               Ok((holds, params)) => {
@@ -77,8 +83,7 @@ impl<T: 'static + Send + ?Sized + Sync + Fluent> FluentBase<T> {
                                                       params);
                 self.memory.push(fluent_result.clone());
 
-                let only_holding_to_sink = false; // TODO take from config
-                if holds || !only_holding_to_sink {
+                if holds {
                   self.sink_tx.send(fluent_result).await.unwrap();
                 }
               }
@@ -97,6 +102,8 @@ impl<T: 'static + Send + ?Sized + Sync + Fluent> FluentBase<T> {
                 if source_id == self.source_id {
                   // ... if so:
                   // search for the matching response and take it, or None
+
+                  // TODO IF THIS IS NONE, SET TIMER AND TRY AGAIN AFTER TIMER
                   self.memory
                       .iter()
                       .find(|&fluent_result| {
@@ -112,6 +119,9 @@ impl<T: 'static + Send + ?Sized + Sync + Fluent> FluentBase<T> {
                 // take the latest response we have, or None
                 self.memory.iter().next()
               };
+
+            // info!("request for '{}' is {:?}",
+            //       fluent_request.name, fluent_result);
 
             // if we found a response we can return, send it.
             // otherwise everything gets dropped here, the request channel is

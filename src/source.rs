@@ -41,7 +41,7 @@ impl Source {
       // initialize and run Fluents
       for (name, fluent) in build_fluents_index() {
         // TODO capacity from config
-        let (fluent_tx, fluent_rx) = mpsc::channel(32);
+        let (fluent_tx, fluent_rx) = mpsc::channel(16);
         self.fluents.insert(name.clone(), fluent_tx);
 
         FluentBase::<dyn Fluent>::init(self.source_id,
@@ -54,26 +54,22 @@ impl Source {
 
       // handle incoming messages
       while let Some(broker_message) = self.source_rx.recv().await {
-        let matcher_msg = broker_message.clone();
-        match matcher_msg {
-          BrokerMessage::Data(dp) => {
-            info!("received datapoint for {}, sending to all fluents",
-                  dp.source_id);
+        match broker_message {
+          BrokerMessage::Data(_) => {
             for (name, fluent_tx) in &self.fluents {
-              info!("sending to {}", name);
+              if self.source_id == 228051000 && name == "rendezVous" {
+                info!("fluent {} has capacity {}", name, fluent_tx.capacity());
+              }
               fluent_tx.send(broker_message.clone()).await.unwrap();
             }
-            info!("done sending to all fluents");
           }
-          BrokerMessage::FluentReq(fluent_request) => {
-            info!("received fluent request for {:?}, sending to {}",
-                  fluent_request.source_id, fluent_request.name);
-            self.fluents[&fluent_request.name].send(broker_message)
-                                              .await
-                                              .unwrap();
-            info!("sent fluent request for {} to {:?}",
-                  fluent_request.name, fluent_request.source_id);
-          }
+          // BrokerMessage::FluentReq(fluent_request) => {
+          //   let name = fluent_request.name.clone();
+          //   let broker_message = BrokerMessage::FluentReq(fluent_request);
+
+          //   self.fluents[&name].send(broker_message).await.unwrap();
+          // }
+          _ => {}
         }
       }
     });

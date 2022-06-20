@@ -98,6 +98,7 @@ impl Feeder {
         for row in rows {
           datapoint.update_datapoint(row);
           if datapoint.timestamp <= time {
+            // info!("data_tx capacity: {}", self.data_tx.capacity());
             // TODO: fix unwrap
             self.data_tx.send(datapoint.clone()).await.unwrap();
             //
