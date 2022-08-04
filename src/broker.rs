@@ -15,6 +15,7 @@ use crate::{config::Config,
 
 use std::collections::HashMap;
 use tokio::{sync::{mpsc, mpsc::error::TryRecvError},
+            task::JoinHandle,
             time};
 use tokio_postgres::{types::ToSql, NoTls};
 use tracing::{error, info};
@@ -33,8 +34,8 @@ impl Broker {
     config: &Config)
     -> (Self, mpsc::Sender<Datapoint>, mpsc::Receiver<FluentResult>) {
     let config = config.clone();
-    let (data_tx, data_rx) = mpsc::channel(config.channel_capacities.data);
-    let (sink_tx, sink_rx) = mpsc::channel(config.channel_capacities.sink);
+    let (data_tx, data_rx) = mpsc::channel(32);
+    let (sink_tx, sink_rx) = mpsc::channel(32);
     let sources = HashMap::new();
 
     (Self { config,
@@ -45,7 +46,7 @@ impl Broker {
      sink_rx)
   }
 
-  pub fn run(mut self) {
+  pub fn run(mut self) -> JoinHandle<()> {
     tokio::spawn(async move {
       let dbparams = format!("host={} user={} password={} dbname={}",
                              self.config.database_credentials.host,
@@ -66,8 +67,7 @@ impl Broker {
       });
 
       let function_statements = build_functions_index(&dbclient).await;
-      let (request_tx, mut request_rx) =
-        mpsc::channel(self.config.channel_capacities.request);
+      let (request_tx, mut request_rx) = mpsc::channel(32);
 
       let mut interval = time::interval(time::Duration::from_millis(1));
 
@@ -128,8 +128,7 @@ impl Broker {
             Ok(datapoint) => {
               let source_tx =
                 if !self.sources.contains_key(&datapoint.source_id) {
-                  let (source_tx, source_rx) =
-                    mpsc::channel(self.config.channel_capacities.source);
+                  let (source_tx, source_rx) = mpsc::channel(32);
 
                   self.sources.insert(datapoint.source_id, source_tx.clone());
                   Source::init(datapoint.source_id,
@@ -157,6 +156,6 @@ impl Broker {
           }
         }
       }
-    });
+    })
   }
 }

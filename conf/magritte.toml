@@ -10,19 +10,14 @@ user = "postgres"
 password = "barbershop"
 dbname = "doi105281zenodo1167595"
 
-[channel_capacities]
-data = 32
-sink = 32
-source = 32
-request = 32
+[source]
+  [source.run_params]
+  millis_per_cycle = 1
+  datapoints_to_run = 1000
 
-[feeder_config]
-millis_per_cycle = 1
-datapoints_to_run = 1000
-
-  [feeder_config.query]
-  source_id = "mmsi"
-  timestamp = "ts"
-  value_names = ["lon", "lat", "speed"]
+  [source.query_params]
+  key_name = "mmsi"
+  timestamp_name = "ts"
+  fluent_names = ["lon", "lat", "speed"]
   from_table = "ais_data.dynamic_ships"
   order_by = "id"

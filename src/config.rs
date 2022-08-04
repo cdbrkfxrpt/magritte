@@ -15,8 +15,7 @@ pub struct Config {
   #[serde(skip)]
   pub command_line_args:    CommandLineArgs,
   pub database_credentials: DatabaseCredentials,
-  pub channel_capacities:   ChannelCapacities,
-  pub feeder_config:        FeederConfig,
+  pub source_config:        SourceConfig,
 }
 
 impl Config {
@@ -41,28 +40,24 @@ pub struct DatabaseCredentials {
 
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct ChannelCapacities {
-  pub data:    usize,
-  pub sink:    usize,
-  pub source:  usize,
-  pub request: usize,
+pub struct SourceConfig {
+  pub run_params:   SourceRunParams,
+  pub query_params: SourceQueryParams,
 }
 
-
 #[derive(Clone, Debug, Deserialize)]
-pub struct FeederConfig {
+pub struct SourceRunParams {
   pub millis_per_cycle:  u64,
   pub datapoints_to_run: usize,
-  pub query:             FeederQuery,
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct FeederQuery {
-  pub source_id:   String,
-  pub timestamp:   String,
-  pub value_names: Vec<String>,
-  pub from_table:  String,
-  pub order_by:    String,
+pub struct SourceQueryParams {
+  pub key_name:       String,
+  pub timestamp_name: String,
+  pub fluent_names:   Vec<String>,
+  pub from_table:     String,
+  pub order_by:       String,
 }
 
 

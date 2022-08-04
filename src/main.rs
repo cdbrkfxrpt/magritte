@@ -18,7 +18,6 @@
 
 mod broker;
 mod config;
-mod feeder;
 mod fluent;
 mod knowledge;
 mod prep;
@@ -28,9 +27,7 @@ mod types;
 
 use broker::Broker;
 use config::Config;
-use feeder::Feeder;
 use prep::run_prepare;
-use sink::Sink;
 
 use eyre::Result;
 use tokio::{signal, sync::mpsc};
@@ -60,17 +57,9 @@ async fn main() -> Result<()> {
 
   let runner_tx = tx.clone();
   let runner = tokio::spawn(async move {
-    let (broker, data_tx, sink_rx) = Broker::init(&config);
+    let (broker, _data_tx, _sink_rx) = Broker::init(&config);
 
-    let feeder = Feeder::init(data_tx,
-                              &config.database_credentials,
-                              &config.feeder_config);
-    let sink = Sink::init(sink_rx, &config.database_credentials);
-
-    sink.run();
-    broker.run();
-
-    match feeder.run().await {
+    match broker.run().await {
       Ok(()) => {
         info!("runner has stopped");
         if let Err(e) = runner_tx.send(ShutdownCause::RunnerCompletion) {
