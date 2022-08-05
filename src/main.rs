@@ -18,16 +18,9 @@
 
 mod broker;
 mod config;
-mod fluent;
-mod knowledge;
-mod prep;
-mod sink;
-mod source;
-mod types;
 
 use broker::Broker;
 use config::Config;
-use prep::run_prepare;
 
 use eyre::Result;
 use tokio::{signal, sync::mpsc};
@@ -37,9 +30,9 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 #[derive(Debug)]
 enum ShutdownCause {
-  RunnerInitFailed,
-  RunnerCompletion,
-  UserAbort,
+  BrokerShutdown,
+  BrokerInitFailed,
+  CtrlC,
 }
 
 
@@ -48,51 +41,53 @@ async fn main() -> Result<()> {
   setup()?;
   info!("logging and tracing setup complete, magritte starting up");
 
-  let config = Config::new()?;
-  info!(?config);
-
-  run_prepare(&config).await?;
-
+  // this channel is used by service tasks communicate back to main
   let (tx, mut rx) = mpsc::unbounded_channel();
 
-  let runner_tx = tx.clone();
-  let runner = tokio::spawn(async move {
-    let (broker, _data_tx, _sink_rx) = Broker::init(&config);
-
-    match broker.run().await {
-      Ok(()) => {
-        info!("runner has stopped");
-        if let Err(e) = runner_tx.send(ShutdownCause::RunnerCompletion) {
-          error!("unable to inform magritte main task: {}", e);
-        }
-      }
-      Err(e) => {
-        info!("runner init failed: {}", e);
-        if let Err(e) = runner_tx.send(ShutdownCause::RunnerInitFailed) {
-          error!("unable to inform magritte main task: {}", e);
-        }
-      }
-    }
-  });
-
-  info!("magritte runner has been started, setting up Ctrl+C listener");
-  let ctrl_c_tx = tx.clone();
+  info!("Ctrl+C listener starting up...");
+  let main_tx = tx.clone();
   tokio::spawn(async move {
     signal::ctrl_c().await
                     .expect("unable to listen for Ctrl+C event");
 
     info!("received Ctrl+C signal");
-    if let Err(e) = ctrl_c_tx.send(ShutdownCause::UserAbort) {
+    if let Err(e) = main_tx.send(ShutdownCause::CtrlC) {
       error!("unable to inform magritte main task: {}", e);
     }
   });
 
+  info!("reading command line arguments and config file...");
+  let config = Config::new()?;
+  info!(?config);
+
+  info!("Broker starting up...");
+  let main_tx = tx.clone();
+  let broker_task = tokio::spawn(async move {
+    let broker = Broker::init();
+
+    match broker.run().await {
+      Ok(()) => {
+        info!("broker has stopped");
+        if let Err(e) = main_tx.send(ShutdownCause::BrokerShutdown) {
+          error!("unable to inform magritte main task: {}", e);
+        }
+      }
+      Err(e) => {
+        info!("broker init failed: {}", e);
+        if let Err(e) = main_tx.send(ShutdownCause::BrokerInitFailed) {
+          error!("unable to inform magritte main task: {}", e);
+        }
+      }
+    }
+  });
+
+  info!("magritte up and running!");
   match rx.recv()
           .await
           .expect("received None on magritte main task channel")
   {
-    ShutdownCause::RunnerInitFailed | ShutdownCause::RunnerCompletion => (),
-    ShutdownCause::UserAbort => runner.abort(),
+    ShutdownCause::BrokerInitFailed | ShutdownCause::BrokerShutdown => (),
+    ShutdownCause::CtrlC => broker_task.abort(),
   }
 
   info!("magritte has shut down");

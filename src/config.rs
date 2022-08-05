@@ -1,4 +1,4 @@
-// Cloneright 2022 Florian Eich <florian.eich@gmail.com>
+// Copyright 2022 Florian Eich <florian.eich@gmail.com>
 //
 // This work is licensed under the Apache License, Version 2.0. You should have
 // received a copy of this license along with the source code. If that is not
@@ -15,7 +15,7 @@ pub struct Config {
   #[serde(skip)]
   pub command_line_args:    CommandLineArgs,
   pub database_credentials: DatabaseCredentials,
-  pub source_config:        SourceConfig,
+  pub source_params:        SourceParams,
 }
 
 impl Config {
@@ -40,7 +40,7 @@ pub struct DatabaseCredentials {
 
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct SourceConfig {
+pub struct SourceParams {
   pub run_params:   SourceRunParams,
   pub query_params: SourceQueryParams,
 }
