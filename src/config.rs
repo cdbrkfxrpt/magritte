@@ -13,9 +13,9 @@ use std::fs;
 #[derive(Clone, Debug, Deserialize)]
 pub struct Config {
   #[serde(skip)]
-  pub command_line_args:    CommandLineArgs,
-  pub database_credentials: DatabaseCredentials,
-  pub source_params:        SourceParams,
+  pub command_line_args: CommandLineArgs,
+  pub database_params:   DatabaseParams,
+  pub source_params:     SourceParams,
 }
 
 impl Config {
@@ -31,7 +31,7 @@ impl Config {
 
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct DatabaseCredentials {
+pub struct DatabaseParams {
   pub host:     String,
   pub user:     String,
   pub password: String,

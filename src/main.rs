@@ -18,9 +18,11 @@
 
 mod broker;
 mod config;
+mod database_handler;
 
 use broker::Broker;
 use config::Config;
+use database_handler::DatabaseHandler;
 
 use eyre::Result;
 use tokio::{signal, sync::mpsc};
@@ -60,6 +62,10 @@ async fn main() -> Result<()> {
   let config = Config::new()?;
   info!(?config);
 
+  info!("setting up database handler and preparing database for run...");
+  let database = DatabaseHandler::new(config.database_params);
+  database.prepare_run().await?;
+
   info!("Broker starting up...");
   let main_tx = tx.clone();
   let broker_task = tokio::spawn(async move {
@@ -86,7 +92,7 @@ async fn main() -> Result<()> {
           .await
           .expect("received None on magritte main task channel")
   {
-    ShutdownCause::BrokerInitFailed | ShutdownCause::BrokerShutdown => (),
+    ShutdownCause::BrokerShutdown | ShutdownCause::BrokerInitFailed => (),
     ShutdownCause::CtrlC => broker_task.abort(),
   }
 
