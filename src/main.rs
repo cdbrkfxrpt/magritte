@@ -11,6 +11,7 @@
 
 // crate level attributes
 #![allow(dead_code)] // remove once done
+#![allow(type_alias_bounds)]
 #![feature(mutex_unlock)]
 #![feature(box_into_inner)]
 #![feature(let_else)]
@@ -19,6 +20,7 @@
 mod broker;
 mod config;
 mod database_handler;
+mod fluent;
 
 use broker::Broker;
 use config::Config;

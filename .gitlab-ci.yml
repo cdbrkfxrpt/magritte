@@ -1,0 +1,39 @@
+# Copyright 2022 Florian Eich <florian.eich@gmail.com>
+#
+# This work is licensed under the Apache License, Version 2.0. You should have
+# received a copy of this license along with the source code. If that is not
+# the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
+
+stages:
+  - test
+  - doc
+
+test:cargo:
+  stage: test
+  tags:
+    - coverage
+    - rust
+  script:
+    - rustc --version && cargo --version  # Print version info for debugging
+    - sh coverage.sh
+  artifacts:
+    paths:
+      - target/coverage/html
+
+pages:
+  stage: doc
+  tags:
+    - rust
+  needs:
+    - test:cargo
+  script:
+    - cargo doc --no-deps
+    - mv target/doc public
+    - echo '<meta http-equiv="refresh" content="0; url=xdrk">' > public/index.html
+    - mkdir -p public/covr
+    - cp -r target/coverage/html/* public/covr
+  artifacts:
+    paths:
+      - public
+  only:
+    - trunk

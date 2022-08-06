@@ -27,7 +27,6 @@ impl DatabaseHandler {
 
   pub async fn connect(&self) -> Result<tp::Client> {
     let (client, connection) = tp::connect(&self.params_str, tp::NoTls).await?;
-    info!("database connection successful");
 
     // task awaits database connection, traces on error
     tokio::spawn(async move {
@@ -36,6 +35,7 @@ impl DatabaseHandler {
       }
     });
 
+    info!("database connection successful");
     Ok(client)
   }
 

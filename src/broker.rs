@@ -9,7 +9,9 @@ use tracing::info;
 
 
 #[derive(Debug)]
-pub struct Broker {}
+pub struct Broker {
+
+}
 
 impl Broker {
   pub fn init() -> Self {
