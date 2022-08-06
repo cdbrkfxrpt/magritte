@@ -33,7 +33,7 @@ pages:
     - rustc --version && cargo --version
     - cargo doc --no-deps
     - mv target/doc public
-    - echo '<meta http-equiv="refresh" content="0; url=xdrk">' > public/index.html
+    - echo '<meta http-equiv="refresh" content="0; url=magritte">' > public/index.html
     - mkdir -p public/covr
     - cp -r target/coverage/html/* public/covr
   artifacts:
