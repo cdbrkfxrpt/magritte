@@ -30,6 +30,7 @@ mod broker;
 mod config;
 mod database_handler;
 mod fluent;
+mod util;
 
 use broker::Broker;
 use config::Config;

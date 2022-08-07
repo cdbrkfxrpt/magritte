@@ -47,11 +47,15 @@ impl<ValueType: PartialEq + Eq> Fluent<ValueType> {
            last_change: timestamp, }
   }
 
+  /// Update the fluent with a new timestamp and value. The new timestamp must
+  /// be after the old one (tested via `timestamp > self.timestamp`) for this
+  /// method to return `Ok(())`. This method also updates the value of
+  /// `last_change` if the value is changed.
   pub fn update(&mut self,
                 timestamp: Timestamp,
                 value: ValueType)
                 -> Result<()> {
-    ensure!(timestamp != self.timestamp,
+    ensure!(timestamp > self.timestamp,
             "cannot update fluent with equal timestamp");
 
     self.timestamp = timestamp;
@@ -76,6 +80,7 @@ impl<ValueType: PartialEq + Eq> Ord for Fluent<ValueType> {
 }
 
 
+/// Enables the use of `Fluent`s as `dyn AnyFluent` objects.
 pub trait AnyFluent {}
 impl<ValueType: PartialEq + Eq> AnyFluent for Fluent<ValueType> {}
 

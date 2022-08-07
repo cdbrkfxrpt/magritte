@@ -6,6 +6,15 @@
 
 
 #[allow(unused)]
+/// Use this like you would use `vec![]`, giving it `&str` elements as
+/// arguments, and you'll get a `Vec<String>` with your elements.
+macro_rules! stringvec {
+  [$($x:literal),* $(,)?] => (vec![$(String::from($x)),*]);
+}
+#[allow(unused)]
+pub(crate) use stringvec;
+
+#[allow(unused)]
 pub fn round_f32(n: f32, d: i64) -> f32 {
   (n * (d * 10) as f32).round() / (d * 10) as f32
 }
