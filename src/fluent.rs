@@ -9,11 +9,15 @@ use getset::{CopyGetters, Getters, MutGetters};
 use std::cmp::Ordering;
 
 
+/// Type alias for key, i.e. sub-stream identifier, type.
 pub type Key = usize;
+/// Type alias for timestamp type.
 pub type Timestamp = usize;
 
 
 #[derive(Clone, Debug, PartialEq, Eq, CopyGetters, Getters, MutGetters)]
+/// Core application data type. Any property that is subject to change is
+/// represented by a fluent.
 pub struct Fluent<ValueType: PartialEq + Eq> {
   #[getset(get = "pub", get_mut = "pub")]
   name:        String,
@@ -28,6 +32,9 @@ pub struct Fluent<ValueType: PartialEq + Eq> {
 }
 
 impl<ValueType: PartialEq + Eq> Fluent<ValueType> {
+  /// A fluent needs to have a name and associated keys, i.e. sub-streams, to
+  /// be uniquely identified. An initial timestamp and value must be provided,
+  /// where the value can be of any type that implements `PartialEq + Eq`.
   pub fn new(name: &str,
              keys: &[Key],
              timestamp: Timestamp,

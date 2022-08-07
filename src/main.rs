@@ -4,10 +4,19 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-//! `magritte` - _Ceci n'est pas une pipe(line)_.
+//! `magritte` - _Ceci n'est pas une pipe(line)_
 //!
-//! This application implements the concurrent stream reasoning architecture
-//! outline in the Master's thesis of Florian Eich.
+//! An application for concurrently reasoning over data streams. Configurably
+//! reads data from a PostgreSQL database (other input interfaces are possible
+//! by extending the application, which is well-documented and straightforward)
+//! and applies rules provided by the user on it. The resulting _event stream_
+//! is written back to the PostgreSQL database (although, again, this can
+//! easily be adjusted).
+//!
+//! Theoretical background is provided in the form of [a graduation thesis for
+//! M.Sc. in Computer
+//! Science](https://gitlab.bmc-labs.com/flrn/eich21/-/raw/trunk/thesis/99-PDF/eich21.pdf?inline=false)
+//! by [Florian Eich](mailto:florian.eich@gmail.com).
 
 // crate level attributes
 #![allow(dead_code)] // remove once done
@@ -41,6 +50,7 @@ enum ShutdownCause {
 
 
 #[tokio::main]
+/// Application entry point. Sets up core services and runs the application.
 async fn main() -> Result<()> {
   setup()?;
   info!("logging and tracing setup complete, magritte starting up");
@@ -102,9 +112,8 @@ async fn main() -> Result<()> {
   Ok(())
 }
 
-/// Initalizes backtracing and error handling capabilities and sets up the
-/// tracing infrastructure for outputting logs from all components as well
-/// monitoring tasks through tokio console.
+/// Initalizes backtracing and error handling capabilities. Sets up tracing and
+/// task monitoring through tokio console.
 fn setup() -> Result<()> {
   // set up eyre with colors
   const BT_ENVVAR: &str = "RUST_LIB_BACKTRACE";
