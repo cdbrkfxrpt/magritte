@@ -96,10 +96,6 @@ mod tests {
 
 
   #[test]
-  fn command_line_test() {
-  }
-
-  #[test]
   fn config_test() {
     let cla = CommandLineArgs::parse();
     assert_eq!(cla.config_path, String::from("./conf/magritte.toml"));
