@@ -82,7 +82,7 @@ pub struct SourceQueryParams {
 // fin --------------------------------------------------------------------- //
 
 #[cfg(test)]
-mod test {
+mod tests {
   use super::{CommandLineArgs,
               Config,
               DatabaseParams,
@@ -97,13 +97,15 @@ mod test {
 
   #[test]
   fn command_line_test() {
-    let cla = CommandLineArgs::parse();
-    assert_eq!(cla.config_path, String::from("./conf/magritte.toml"));
   }
 
   #[test]
   fn config_test() {
+    let cla = CommandLineArgs::parse();
+    assert_eq!(cla.config_path, String::from("./conf/magritte.toml"));
+
     let config = Config::new().unwrap();
+    assert_eq!(config.command_line_args, cla);
     assert_eq!(config.command_line_args.config_path,
                String::from("./conf/magritte.toml"));
   }

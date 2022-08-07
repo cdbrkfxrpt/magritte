@@ -87,7 +87,7 @@ impl<ValueType: PartialEq + Eq> AnyFluent for Fluent<ValueType> {}
 // fin --------------------------------------------------------------------- //
 
 #[cfg(test)]
-mod test {
+mod tests {
   use super::{AnyFluent, Fluent};
   use float_ord::FloatOrd;
   use pretty_assertions::assert_eq;
