@@ -20,21 +20,19 @@
 
 // crate level attributes
 #![allow(dead_code)] // remove once done
-#![allow(type_alias_bounds)]
 #![feature(mutex_unlock)]
 #![feature(box_into_inner)]
 #![feature(let_else)]
 //
 
+mod app_init;
 mod broker;
-mod config;
-mod database_handler;
+mod database;
 mod fluent;
+mod source;
 mod util;
 
-use broker::Broker;
-use config::Config;
-use database_handler::DatabaseHandler;
+use app_init::AppInit;
 
 use eyre::Result;
 use tokio::{signal, sync::mpsc};
@@ -71,19 +69,23 @@ async fn main() -> Result<()> {
     }
   });
 
-  info!("reading command line arguments and config file...");
-  let config = Config::new()?;
-  info!(?config);
+  info!("reading command line arguments and config file to init app...");
+  let AppInit { database_connector,
+                source,
+                broker, } = AppInit::parse()?;
+  info!(?database_connector, ?source, ?broker);
 
-  info!("setting up database handler and preparing database for run...");
-  let database = DatabaseHandler::new(config.database_params);
-  database.prepare_run().await?;
+  info!("preparing database for run...");
+  database_connector.prepare_run().await?;
 
-  info!("Broker starting up...");
+  // broker.register_source(source);
+  // broker.register_sink(sink);
+  // for node in build_node_index() {
+  //   broker.register_node(node)?;
+  // }
+
   let main_tx = tx.clone();
   let broker_task = tokio::spawn(async move {
-    let broker = Broker::init();
-
     match broker.run().await {
       Ok(()) => {
         info!("broker has stopped");

@@ -4,74 +4,78 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::{fluent::{build_fluents_index, Fluent, FluentBase},
-            types::{BrokerMessage, BrokerRequest, FluentResult}};
-
-use std::collections::HashMap;
-use tokio::sync::mpsc;
-use tracing::info;
+use serde::Deserialize;
 
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+/// Holds parameters for the `Source` service of the application, which reads
+/// data from the source (i.e. the PostgreSQL database) and publishes it to the
+/// `Broker` service.
 pub struct Source {
-  source_id:  usize,
-  source_rx:  mpsc::Receiver<BrokerMessage>,
-  request_tx: mpsc::Sender<BrokerRequest>,
-  sink_tx:    mpsc::Sender<FluentResult>,
-  fluents:    HashMap<String, mpsc::Sender<BrokerMessage>>,
+  run_params:   RunParams,
+  query_params: QueryParams,
 }
 
-impl Source {
-  pub fn init(source_id: usize,
-              source_rx: mpsc::Receiver<BrokerMessage>,
-              request_tx: mpsc::Sender<BrokerRequest>,
-              sink_tx: mpsc::Sender<FluentResult>)
-              -> Self {
-    let fluents = HashMap::new();
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+/// Holds parameters for the execution of the `Source` service.
+struct RunParams {
+  pub millis_per_cycle:  u64,
+  pub datapoints_to_run: usize,
+}
 
-    Self { source_id,
-           source_rx,
-           request_tx,
-           sink_tx,
-           fluents }
-  }
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+/// Holds parameters for the database query performed by the `Source` service.
+struct QueryParams {
+  pub key_name:       String,
+  pub timestamp_name: String,
+  pub fluent_names:   Vec<String>,
+  pub from_table:     String,
+  pub order_by:       String,
+}
 
-  pub fn run(mut self) {
-    tokio::spawn(async move {
-      // initialize and run Fluents
-      for (name, fluent) in build_fluents_index() {
-        // TODO capacity from config
-        let (fluent_tx, fluent_rx) = mpsc::channel(16);
-        self.fluents.insert(name.clone(), fluent_tx);
 
-        FluentBase::<dyn Fluent>::init(self.source_id,
-                                       name,
-                                       fluent,
-                                       fluent_rx,
-                                       self.request_tx.clone(),
-                                       self.sink_tx.clone()).run();
-      }
+// fin --------------------------------------------------------------------- //
 
-      // handle incoming messages
-      while let Some(broker_message) = self.source_rx.recv().await {
-        match broker_message {
-          BrokerMessage::Data(_) => {
-            for (name, fluent_tx) in &self.fluents {
-              if self.source_id == 228051000 && name == "rendezVous" {
-                info!("fluent {} has capacity {}", name, fluent_tx.capacity());
-              }
-              fluent_tx.send(broker_message.clone()).await.unwrap();
-            }
-          }
-          // BrokerMessage::FluentReq(fluent_request) => {
-          //   let name = fluent_request.name.clone();
-          //   let broker_message = BrokerMessage::FluentReq(fluent_request);
+#[cfg(test)]
+mod tests {
+  use super::{QueryParams, RunParams, Source};
+  use crate::util::stringvec;
 
-          //   self.fluents[&name].send(broker_message).await.unwrap();
-          // }
-          _ => {}
-        }
-      }
-    });
+  use pretty_assertions::assert_eq;
+
+  #[test]
+  fn source_params_test() {
+    let millis_per_cycle = 42;
+    let datapoints_to_run = 1337;
+
+    let rp = RunParams { millis_per_cycle,
+                         datapoints_to_run };
+
+    assert_eq!(rp.millis_per_cycle, millis_per_cycle);
+    assert_eq!(rp.datapoints_to_run, datapoints_to_run);
+
+    let key_name = String::from("id");
+    let timestamp_name = String::from("ts");
+    let fluent_names = stringvec!["lat", "lon", "speed"];
+    let from_table = String::from("the.matrix");
+    let order_by = String::from("serial");
+
+    let qp = QueryParams { key_name:       key_name.clone(),
+                           timestamp_name: timestamp_name.clone(),
+                           fluent_names:   fluent_names.clone(),
+                           from_table:     from_table.clone(),
+                           order_by:       order_by.clone(), };
+
+    assert_eq!(qp.key_name, key_name);
+    assert_eq!(qp.timestamp_name, timestamp_name);
+    assert_eq!(qp.fluent_names, fluent_names);
+    assert_eq!(qp.from_table, from_table);
+    assert_eq!(qp.order_by, order_by);
+
+    let src = Source { run_params:   rp.clone(),
+                       query_params: qp.clone(), };
+
+    assert_eq!(src.run_params, rp);
+    assert_eq!(src.query_params, qp);
   }
 }

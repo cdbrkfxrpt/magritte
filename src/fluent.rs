@@ -90,9 +90,11 @@ impl<ValueType: PartialEq + Eq> AnyFluent for Fluent<ValueType> {}
 mod tests {
   use super::{AnyFluent, Fluent};
   use float_ord::FloatOrd;
+
   use pretty_assertions::assert_eq;
   use static_assertions::assert_impl_all;
   use std::convert::From;
+
 
   #[test]
   fn textual_fluent_test() {
