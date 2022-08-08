@@ -28,10 +28,11 @@ grcov -s . --llvm --branch --ignore-not-existing    \
 # order: main first, then alphabetic
 lcov --extract ./target/coverage/full.info \
      "src/main.rs"                         \
+     "src/app_init.rs"                     \
      "src/broker.rs"                       \
-     "src/config.rs"                       \
-     "src/database_handler.rs"             \
+     "src/database.rs"                     \
      "src/fluent.rs"                       \
+     "src/source.rs"                       \
      -o ./target/coverage/magritte.info
 
 # filter the report using lcov
