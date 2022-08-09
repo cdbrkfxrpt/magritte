@@ -9,4 +9,3 @@ mod database;
 mod util;
 
 pub use app_core::AppCore;
-// pub(crate) use util::stringvec;

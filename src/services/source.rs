@@ -123,10 +123,9 @@ struct QueryParams {
 #[cfg(test)]
 mod tests {
   use super::{QueryParams, RunParams, Source};
-  use crate::{app_core::AppCore, fluent::AnyFluent, stringvec};
+  use crate::stringvec;
 
   use pretty_assertions::assert_eq;
-  use tokio::sync::mpsc;
 
 
   #[test]
@@ -166,36 +165,5 @@ mod tests {
 
     assert_eq!(src.run_params, rp);
     assert_eq!(src.query_params, qp);
-  }
-
-  #[tokio::test]
-  // #[ignore]
-  async fn source_test() {
-    let app_core = AppCore::init().unwrap();
-
-    let database_connector =
-      app_core.database_connector.connect().await.unwrap();
-    let source = app_core.source;
-
-    assert_eq!(source.published_fluents(),
-               stringvec!["lon", "lat", "speed"]);
-
-    let (tx, mut rx) = mpsc::unbounded_channel();
-
-    let runner = tokio::spawn(async move {
-      source.run(database_connector, tx).await.unwrap();
-    });
-
-    let AnyFluent::FloatPt(fluent) = rx.recv().await.unwrap() else {
-      panic!()
-    };
-
-    assert_eq!(fluent.name(), "lon");
-    assert_eq!(fluent.keys(), &[245257000]);
-    assert_eq!(fluent.timestamp(), 1443650402);
-    assert_eq!(fluent.value(), &-4.4657183);
-    assert_eq!(fluent.last_change(), 1443650402);
-
-    runner.abort();
   }
 }

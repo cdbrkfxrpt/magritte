@@ -5,7 +5,6 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use eyre::Result;
-use indoc::indoc;
 use serde::Deserialize;
 use tokio_postgres as tp;
 use tracing::{error, info};
@@ -40,60 +39,6 @@ impl DatabaseConnector {
 
     info!("database connection successful");
     Ok(client)
-  }
-
-  /// Prepares the database for a run using the following PostgreSQL:
-  ///
-  /// ```sql
-  /// -- dropping and recreating magritte schema
-  /// drop schema if exists magritte cascade;
-  /// create schema magritte;
-  ///
-  /// -- creating event stream table
-  /// create table magritte.event_stream (
-  ///   id          serial,
-  ///   fluent_name text,
-  ///   keys        integer[],
-  ///   timestamp   bigint,
-  ///   value       bool,
-  ///   lastChanged bigint
-  /// );
-  ///
-  /// -- transforming coastline to the correct coordinate system:
-  /// -- this is very costly but can be done only once on startup
-  /// select gid, shape_leng, ST_Transform(geom, 3857) as geom
-  /// into   magritte.europe_coastline
-  /// from   geographic_features.europe_coastline;
-  /// ```
-  pub async fn prepare_run(&self) -> Result<()> {
-    let client = self.connect().await?;
-
-    let sql_raw = indoc! {r#"
-      -- dropping and recreating magritte schema
-      drop schema if exists magritte cascade;
-      create schema magritte;
-
-      -- creating event stream table
-      create table magritte.event_stream (
-        id          serial,
-        fluent_name text,
-        keys        integer[],
-        timestamp   bigint,
-        value       bool,
-        lastChanged bigint
-      );
-
-      -- transforming coastline to the correct coordinate system:
-      -- this is very costly but can be done only once on startup
-      select gid, shape_leng, ST_Transform(geom, 3857) as geom
-      into   magritte.europe_coastline
-      from   geographic_features.europe_coastline;
-    "#};
-
-    info!("executing run preparation SQL:\n\n{}", sql_raw);
-    client.batch_execute(sql_raw).await?;
-
-    Ok(())
   }
 }
 
