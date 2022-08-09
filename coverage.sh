@@ -31,7 +31,8 @@ lcov --extract ./target/coverage/full.info \
      "src/app_init.rs"                     \
      "src/broker.rs"                       \
      "src/database.rs"                     \
-     "src/fluent.rs"                       \
+     "src/fluent/any_fluent.rs"            \
+     "src/fluent/fluent.rs"                \
      "src/source.rs"                       \
      -o ./target/coverage/magritte.info
 
