@@ -25,14 +25,11 @@
 #![feature(let_else)]
 //
 
-mod app_init;
-mod broker;
-mod database;
+mod app_core;
 mod fluent;
-mod source;
-mod util;
+mod services;
 
-use app_init::AppInit;
+use app_core::AppCore;
 
 use eyre::Result;
 use tokio::{signal, sync::mpsc};
@@ -70,31 +67,23 @@ async fn main() -> Result<()> {
   });
 
   info!("reading command line arguments and config file to init app...");
-  let AppInit { database_connector,
-                source,
-                broker, } = AppInit::parse()?;
-  info!(?database_connector, ?source, ?broker);
+  let app_core = AppCore::init()?;
+  info!(?app_core);
 
   info!("preparing database for run...");
-  database_connector.prepare_run().await?;
-
-  // broker.register_source(source);
-  // broker.register_sink(sink);
-  // for node in build_node_index() {
-  //   broker.register_node(node)?;
-  // }
+  app_core.prepare_run().await?;
 
   let main_tx = tx.clone();
-  let broker_task = tokio::spawn(async move {
-    match broker.run().await {
+  let core_task = tokio::spawn(async move {
+    match app_core.run().await {
       Ok(()) => {
-        info!("broker has stopped");
+        info!("app core has stopped");
         if let Err(e) = main_tx.send(ShutdownCause::BrokerShutdown) {
           error!("unable to inform magritte main task: {}", e);
         }
       }
       Err(e) => {
-        info!("broker init failed: {}", e);
+        info!("app core init failed: {}", e);
         if let Err(e) = main_tx.send(ShutdownCause::BrokerInitFailed) {
           error!("unable to inform magritte main task: {}", e);
         }
@@ -108,7 +97,7 @@ async fn main() -> Result<()> {
           .expect("received None on magritte main task channel")
   {
     ShutdownCause::BrokerShutdown | ShutdownCause::BrokerInitFailed => (),
-    ShutdownCause::CtrlC => broker_task.abort(),
+    ShutdownCause::CtrlC => core_task.abort(),
   }
 
   info!("magritte has shut down");

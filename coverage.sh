@@ -28,7 +28,7 @@ grcov -s . --llvm --branch --ignore-not-existing    \
 # order: main first, then alphabetic
 lcov --extract ./target/coverage/full.info \
      "src/main.rs"                         \
-     "src/app_init.rs"                     \
+     "src/app_core/app_init.rs"                     \
      "src/broker.rs"                       \
      "src/database.rs"                     \
      "src/fluent/any_fluent.rs"            \
@@ -37,13 +37,13 @@ lcov --extract ./target/coverage/full.info \
      -o ./target/coverage/magritte.info
 
 # filter the report using lcov
-# lcov --extract ./target/coverage/full.info                             \
-#   $(find src -type f -regextype posix-extended -regex '.*\b\w+?\.rs$') \
-#   -o ./target/coverage/extracted.info
+lcov --extract ./target/coverage/full.info                              \
+  $(find src -type f -regextype posix-extended -regex '.*\b\w+?\.rs$')  \
+  -o ./target/coverage/extracted.info
 
-# lcov --remove ./target/coverage/extracted.info                                   \
-#   $(find src -type f -regextype posix-extended -regex '.*\b(config)\.rs$') \
-#   -o ./target/coverage/magritte.info
+lcov --remove ./target/coverage/extracted.info                          \
+  $(find src -type f -regextype posix-extended -regex '.*\b(mod)\.rs$') \
+  -o ./target/coverage/magritte.info
 
 # generate report for GitLab CI
 lcov --list ./target/coverage/magritte.info
