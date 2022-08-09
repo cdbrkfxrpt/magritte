@@ -24,10 +24,13 @@ pub struct Source {
 }
 
 impl Source {
+  /// Returns the list of fluents published by this `Source`.
   pub fn published_fluents(&self) -> Vec<String> {
     self.query_params.fluent_names.clone()
   }
 
+  /// Runs the `Source`, retrieving data from the database and publishing
+  /// fluents. Consumes the original object.
   pub async fn run(self,
                    database_client: Client,
                    data_tx: mpsc::UnboundedSender<AnyFluent>)

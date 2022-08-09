@@ -17,6 +17,8 @@ pub enum AnyFluent {
 }
 
 impl AnyFluent {
+  /// Allows the creation of `AnyFluent` objects using any value of a type that
+  /// implements the `Selector` trait, which is a helper trait.
   pub fn new<ValueType: Selector>(name: &str,
                                   keys: &[Key],
                                   timestamp: Timestamp,
@@ -26,7 +28,12 @@ impl AnyFluent {
   }
 }
 
+/// Helper trait to enable selection of the correct `AnyFluent` variant based
+/// on the type of the provided value.
 pub trait Selector {
+  /// Implement this function for your typ, returning an `AnyFluent` variant
+  /// with a new `Fluent` inside. Implementations are provided for: `String`,
+  /// `i64`, `f64`, `bool`.
   fn select(name: &str,
             keys: &[Key],
             timestamp: Timestamp,
