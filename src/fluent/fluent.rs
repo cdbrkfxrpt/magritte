@@ -91,7 +91,7 @@ impl<ValueType: fmt::Debug + PartialEq> Ord for Fluent<ValueType> {
 mod tests {
   use super::Fluent;
 
-  use pretty_assertions::assert_eq;
+  use pretty_assertions::{assert_eq, assert_ne};
   use std::convert::From;
 
 
@@ -132,6 +132,15 @@ mod tests {
     assert!(other.update(1339, new_value).is_ok());
     assert_eq!(other.last_change(), new_timestamp);
     assert!(fluent < other);
+
+    let mut other = fluent.clone();
+    *other.name_mut() = "new_name".to_string();
+    *other.keys_mut() = vec![42, 23];
+    *other.timestamp_mut() = 1339;
+    *other.value_mut() = "blocked".to_string();
+    *other.last_change_mut() = 1338;
+
+    assert_ne!(other, fluent);
   }
 
   #[test]
@@ -171,6 +180,15 @@ mod tests {
     assert!(other.update(1339, new_value).is_ok());
     assert_eq!(other.last_change(), new_timestamp);
     assert!(fluent < other);
+
+    let mut other = fluent.clone();
+    *other.name_mut() = "new_name".to_string();
+    *other.keys_mut() = vec![42, 23];
+    *other.timestamp_mut() = 1339;
+    *other.value_mut() = 5;
+    *other.last_change_mut() = 1338;
+
+    assert_ne!(other, fluent);
   }
 
   #[test]
@@ -210,6 +228,15 @@ mod tests {
     assert!(other.update(1339, new_value).is_ok());
     assert_eq!(other.last_change(), new_timestamp);
     assert!(fluent < other);
+
+    let mut other = fluent.clone();
+    *other.name_mut() = "new_name".to_string();
+    *other.keys_mut() = vec![42, 23];
+    *other.timestamp_mut() = 1339;
+    *other.value_mut() = 5.72;
+    *other.last_change_mut() = 1338;
+
+    assert_ne!(other, fluent);
   }
 
   #[test]
@@ -249,5 +276,14 @@ mod tests {
     assert!(other.update(1339, new_value).is_ok());
     assert_eq!(other.last_change(), new_timestamp);
     assert!(fluent < other);
+
+    let mut other = fluent.clone();
+    *other.name_mut() = "new_name".to_string();
+    *other.keys_mut() = vec![42, 23];
+    *other.timestamp_mut() = 1339;
+    *other.value_mut() = false;
+    *other.last_change_mut() = 1338;
+
+    assert_ne!(other, fluent);
   }
 }
