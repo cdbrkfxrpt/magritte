@@ -41,8 +41,8 @@ lcov --extract ./target/coverage/full.info                              \
   $(find src -type f -regextype posix-extended -regex '.*\b\w+?\.rs$')  \
   -o ./target/coverage/extracted.info
 
-lcov --remove ./target/coverage/extracted.info                          \
-  $(find src -type f -regextype posix-extended -regex '.*\b(mod)\.rs$') \
+lcov --remove ./target/coverage/extracted.info                               \
+  $(find src -type f -regextype posix-extended -regex '.*\b(main|mod)\.rs$') \
   -o ./target/coverage/magritte.info
 
 # generate report for GitLab CI
