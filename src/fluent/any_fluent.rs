@@ -115,10 +115,14 @@ mod tests {
 
     assert!(matches!(any_fluent, AnyFluent::Integer(..)));
 
-    let AnyFluent::Integer(extracted) = any_fluent else { panic!() };
+    let AnyFluent::Integer(extracted) = any_fluent.clone() else { panic!() };
     let fluent = Fluent::new(name, keys, timestamp, value);
 
     assert_eq!(extracted, fluent);
+
+    let dbg_print = format!("{:?}", any_fluent);
+    assert_eq!(&dbg_print,
+               r#"Integer(Fluent { name: "integer_fluent", keys: [23, 42], timestamp: 1337, value: 3, last_change: 1337 })"#);
   }
 
   #[test]
@@ -132,10 +136,14 @@ mod tests {
 
     assert!(matches!(any_fluent, AnyFluent::FloatPt(..)));
 
-    let AnyFluent::FloatPt(extracted) = any_fluent else { panic!() };
+    let AnyFluent::FloatPt(extracted) = any_fluent.clone() else { panic!() };
     let fluent = Fluent::new(name, keys, timestamp, value);
 
     assert_eq!(extracted, fluent);
+
+    let dbg_print = format!("{:?}", any_fluent);
+    assert_eq!(&dbg_print,
+               r#"FloatPt(Fluent { name: "floatpt_fluent", keys: [23, 42], timestamp: 1337, value: 3.14159, last_change: 1337 })"#);
   }
 
   #[test]
@@ -149,9 +157,13 @@ mod tests {
 
     assert!(matches!(any_fluent, AnyFluent::Boolean(..)));
 
-    let AnyFluent::Boolean(extracted) = any_fluent else { panic!() };
+    let AnyFluent::Boolean(extracted) = any_fluent.clone() else { panic!() };
     let fluent = Fluent::new(name, keys, timestamp, value);
 
     assert_eq!(extracted, fluent);
+
+    let dbg_print = format!("{:?}", any_fluent);
+    assert_eq!(&dbg_print,
+               r#"Boolean(Fluent { name: "boolean_fluent", keys: [23, 42], timestamp: 1337, value: true, last_change: 1337 })"#);
   }
 }
