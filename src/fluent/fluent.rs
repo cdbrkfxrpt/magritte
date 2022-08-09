@@ -4,21 +4,17 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
+use super::{Key, Timestamp};
+
 use eyre::{ensure, Result};
 use getset::{CopyGetters, Getters, MutGetters};
-use std::cmp::Ordering;
+use std::{cmp::Ordering, fmt};
 
 
-/// Type alias for key, i.e. sub-stream identifier, type.
-pub type Key = usize;
-/// Type alias for timestamp type.
-pub type Timestamp = usize;
-
-
-#[derive(Clone, Debug, PartialEq, Eq, CopyGetters, Getters, MutGetters)]
+#[derive(Clone, Debug, CopyGetters, Getters, MutGetters)]
 /// Core application data type. Any property that is subject to change is
 /// represented by a fluent.
-pub struct Fluent<ValueType: PartialEq + Eq> {
+pub struct Fluent<ValueType: fmt::Debug + PartialEq> {
   #[getset(get = "pub", get_mut = "pub")]
   name:        String,
   #[getset(get = "pub", get_mut = "pub")]
@@ -31,7 +27,7 @@ pub struct Fluent<ValueType: PartialEq + Eq> {
   last_change: Timestamp,
 }
 
-impl<ValueType: PartialEq + Eq> Fluent<ValueType> {
+impl<ValueType: fmt::Debug + PartialEq> Fluent<ValueType> {
   /// A fluent needs to have a name and associated keys, i.e. sub-streams, to
   /// be uniquely identified. An initial timestamp and value must be provided,
   /// where the value can be of any type that implements `PartialEq + Eq`.
@@ -50,7 +46,7 @@ impl<ValueType: PartialEq + Eq> Fluent<ValueType> {
   /// Update the fluent with a new timestamp and value. The new timestamp must
   /// be after the old one (tested via `timestamp > self.timestamp`) for this
   /// method to return `Ok(())`. This method also updates the value of
-  /// `last_change` if the value is changed.
+  /// `last_change` with the value of `timestamp` if the value is changed.
   pub fn update(&mut self,
                 timestamp: Timestamp,
                 value: ValueType)
@@ -67,40 +63,41 @@ impl<ValueType: PartialEq + Eq> Fluent<ValueType> {
   }
 }
 
-impl<ValueType: PartialEq + Eq> PartialOrd for Fluent<ValueType> {
+impl<ValueType: fmt::Debug + PartialEq> PartialEq for Fluent<ValueType> {
+  fn eq(&self, other: &Self) -> bool {
+    self.name == other.name
+    && self.keys == other.keys
+    && self.timestamp == other.timestamp
+  }
+}
+
+impl<ValueType: fmt::Debug + PartialEq> Eq for Fluent<ValueType> {}
+
+impl<ValueType: fmt::Debug + PartialEq> PartialOrd for Fluent<ValueType> {
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
     Some(self.cmp(&other))
   }
 }
 
-impl<ValueType: PartialEq + Eq> Ord for Fluent<ValueType> {
+impl<ValueType: fmt::Debug + PartialEq> Ord for Fluent<ValueType> {
   fn cmp(&self, other: &Self) -> Ordering {
     self.timestamp.cmp(&other.timestamp)
   }
 }
 
-
-/// Enables the use of `Fluent`s as `dyn AnyFluent` objects.
-pub trait AnyFluent {}
-impl<ValueType: PartialEq + Eq> AnyFluent for Fluent<ValueType> {}
-
 // fin --------------------------------------------------------------------- //
 
 #[cfg(test)]
 mod tests {
-  use super::{AnyFluent, Fluent};
-  use float_ord::FloatOrd;
+  use super::Fluent;
 
   use pretty_assertions::assert_eq;
-  use static_assertions::assert_impl_all;
   use std::convert::From;
 
 
   #[test]
   fn textual_fluent_test() {
-    assert_impl_all!(Fluent<String>: AnyFluent);
-
-    let name = "numeric_fluent";
+    let name = "textual_fluent";
     let keys = &[23, 42];
     let timestamp = 1337;
     let value = String::from("running");
@@ -139,9 +136,7 @@ mod tests {
 
   #[test]
   fn integer_fluent_test() {
-    assert_impl_all!(Fluent<i32>: AnyFluent);
-
-    let name = "numeric_fluent";
+    let name = "integer_fluent";
     let keys = &[23, 42];
     let timestamp = 1337;
     let value = 3;
@@ -179,13 +174,11 @@ mod tests {
   }
 
   #[test]
-  fn float_fluent_test() {
-    assert_impl_all!(Fluent<FloatOrd<f32>>: AnyFluent);
-
-    let name = "numeric_fluent";
+  fn floatpt_fluent_test() {
+    let name = "floatpt_fluent";
     let keys = &[23, 42];
     let timestamp = 1337;
-    let value = FloatOrd(3.14159);
+    let value = 3.14159;
 
     let fluent = Fluent::new(name, keys, timestamp, value);
 
@@ -204,7 +197,7 @@ mod tests {
     assert_eq!(fluent, other);
 
     let new_timestamp = 1338;
-    let new_value = FloatOrd(2.71828);
+    let new_value = 2.71828;
 
     assert!(other.update(timestamp, new_value).is_err());
     assert!(other.update(new_timestamp, new_value).is_ok());
@@ -221,9 +214,7 @@ mod tests {
 
   #[test]
   fn boolean_fluent_test() {
-    assert_impl_all!(Fluent<bool>: AnyFluent);
-
-    let name = "numeric_fluent";
+    let name = "boolean_fluent";
     let keys = &[23, 42];
     let timestamp = 1337;
     let value = true;

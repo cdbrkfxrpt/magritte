@@ -21,6 +21,7 @@ dbname = "doi105281zenodo1167595"
   fluent_names = ["lon", "lat", "speed"]
   from_table = "ais_data.dynamic_ships"
   order_by = "id"
+  rows_to_fetch = 32
 
 [broker]
 
