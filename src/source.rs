@@ -4,7 +4,7 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::fluent::{AnyFluent, Fluent};
+use crate::fluent::AnyFluent;
 
 use eyre::Result;
 use indoc::indoc;
@@ -77,16 +77,13 @@ impl Source {
         if timestamp <= time {
           for fluent_name in self.query_params.fluent_names.iter() {
             let value: f64 = row.get(fluent_name.as_str());
-            let fluent = Fluent::new(&fluent_name, &[key], timestamp, value);
+            let fluent =
+              AnyFluent::new(&fluent_name, &[key], timestamp, value);
 
-            data_tx.send(AnyFluent::FloatPt(fluent))?;
+            data_tx.send(fluent)?;
           }
-          //
           offset += 1;
         }
-        // if offset == self.config.feeder.datapoints_to_run {
-        //   return ();
-        // }
       }
       time += 1;
       info!("ran {} datapoints", offset);
@@ -169,7 +166,7 @@ mod tests {
   }
 
   #[tokio::test]
-  #[ignore]
+  // #[ignore]
   async fn source_test() {
     let app_init = AppInit::parse().unwrap();
 

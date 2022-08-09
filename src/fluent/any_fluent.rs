@@ -1,7 +1,4 @@
-// Copyright 2022 bmc::labs Sagl.
-//
-// Authors:
-//   Florian Eich <florian@bmc-labs.com>
+// Copyright 2022 Florian Eich <florian.eich@gmail.com>
 //
 // This work is licensed under the Apache License, Version 2.0. You should have
 // received a copy of this license along with the source code. If that is not
@@ -10,7 +7,7 @@
 use super::{Fluent, Key, Timestamp};
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 /// Enables sending `Fluent`s through channels.
 pub enum AnyFluent {
   Textual(Fluent<String>),
@@ -97,10 +94,14 @@ mod tests {
 
     assert!(matches!(any_fluent, AnyFluent::Textual(..)));
 
-    let AnyFluent::Textual(extracted) = any_fluent else { panic!() };
+    let AnyFluent::Textual(extracted) = any_fluent.clone() else { panic!() };
     let fluent = Fluent::new(name, keys, timestamp, value.clone());
 
     assert_eq!(extracted, fluent);
+
+    let dbg_print = format!("{:?}", any_fluent);
+    assert_eq!(&dbg_print,
+               r#"Textual(Fluent { name: "textual_fluent", keys: [23, 42], timestamp: 1337, value: "running", last_change: 1337 })"#);
   }
 
   #[test]
