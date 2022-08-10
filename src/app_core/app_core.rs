@@ -9,7 +9,6 @@ use crate::services::{Broker, Sink, Source};
 
 use clap::Parser;
 use eyre::Result;
-use indoc::indoc;
 use serde::Deserialize;
 use std::fs;
 use tokio::time;
@@ -39,25 +38,7 @@ impl AppCore {
   /// Prepares the database for a run using the following PostgreSQL:
   ///
   /// ```sql
-  /// -- dropping and recreating magritte schema
-  /// drop schema if exists magritte cascade;
-  /// create schema magritte;
-  ///
-  /// -- creating event stream table
-  /// create table magritte.event_stream (
-  ///   id          serial,
-  ///   fluent_name text,
-  ///   keys        integer[],
-  ///   timestamp   bigint,
-  ///   value       bool,
-  ///   lastChanged bigint
-  /// );
-  ///
-  /// -- transforming coastline to the correct coordinate system:
-  /// -- this is very costly but can be done only once on startup
-  /// select gid, shape_leng, ST_Transform(geom, 3857) as geom
-  /// into   magritte.europe_coastline
-  /// from   geographic_features.europe_coastline;
+  #[doc = include_str!("app_core.sql")]
   /// ```
   ///
   /// Furthermore, establishes the connections between `Broker`, `Source` and
@@ -65,29 +46,12 @@ impl AppCore {
   pub async fn prepare_run(&self) -> Result<()> {
     let client = self.database_connector.connect().await?;
 
-    let sql_raw = indoc! {r#"
-      -- dropping and recreating magritte schema
-      drop schema if exists magritte cascade;
-      create schema magritte;
+    let sql_raw = include_str!("app_core.sql");
+    info!("executing SYSTEM run preparation SQL:\n\n{}", sql_raw);
+    client.batch_execute(sql_raw).await?;
 
-      -- creating event stream table
-      create table magritte.event_stream (
-        id          serial,
-        fluent_name text,
-        keys        integer[],
-        timestamp   bigint,
-        value       bool,
-        lastChanged bigint
-      );
-
-      -- transforming coastline to the correct coordinate system:
-      -- this is very costly but can be done only once on startup
-      select gid, shape_leng, ST_Transform(geom, 3857) as geom
-      into   magritte.europe_coastline
-      from   geographic_features.europe_coastline;
-    "#};
-
-    info!("executing run preparation SQL:\n\n{}", sql_raw);
+    let sql_raw = include_str!("../../conf/prepare_run.sql");
+    info!("executing USER run preparation SQL:\n\n{}", sql_raw);
     client.batch_execute(sql_raw).await?;
 
     Ok(())
@@ -116,7 +80,7 @@ impl AppCore {
 #[cfg(test)]
 mod tests {
   use super::AppCore;
-  use crate::{fluent::AnyFluent, stringvec};
+  use crate::fluent::AnyFluent;
 
   use pretty_assertions::assert_eq;
   use tokio::sync::mpsc;
@@ -129,9 +93,6 @@ mod tests {
     let database_connector =
       app_core.database_connector.connect().await.unwrap();
     let source = app_core.source;
-
-    assert_eq!(source.published_fluents(),
-               stringvec!["lon", "lat", "speed"]);
 
     let (tx, mut rx) = mpsc::unbounded_channel();
 

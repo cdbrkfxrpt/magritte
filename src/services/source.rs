@@ -7,7 +7,6 @@
 use crate::fluent::AnyFluent;
 
 use eyre::Result;
-use indoc::indoc;
 use serde::Deserialize;
 use tokio::{sync::mpsc, time};
 use tokio_postgres::Client;
@@ -31,25 +30,24 @@ impl Source {
 
   /// Runs the `Source`, retrieving data from the database and publishing
   /// fluents. Consumes the original object.
+  ///
+  /// Data retrieval is performed using the following SQL:
+  ///
+  /// ```sql
+  #[doc = include_str!("source.sql")]
+  /// ```
   pub async fn run(self,
                    database_client: Client,
                    fluent_tx: mpsc::UnboundedSender<AnyFluent>)
                    -> Result<()> {
-    let statement_raw = format!(
-                                indoc! {r#"
-          select {} as "key", {} as "timestamp", {}
-          from {}
-          order by {} asc
-          offset $1 rows
-          fetch next {} rows only
-        "#},
-                                self.query_params.key_name,
-                                self.query_params.timestamp_name,
-                                self.query_params.fluent_names.join(", "),
-                                self.query_params.from_table,
-                                self.query_params.order_by,
-                                self.query_params.rows_to_fetch
-    );
+    let statement_raw =
+      format!(include_str!("source.sql"),
+              key_name = self.query_params.key_name,
+              timestamp_name = self.query_params.timestamp_name,
+              fluent_names = self.query_params.fluent_names.join(", "),
+              from_table = self.query_params.from_table,
+              order_by = self.query_params.order_by,
+              rows_to_fetch = self.query_params.rows_to_fetch);
 
     let statement = match database_client.prepare(&statement_raw).await {
       Ok(statement) => statement,
@@ -128,17 +126,21 @@ mod tests {
   use pretty_assertions::assert_eq;
 
 
-  #[test]
-  fn source_params_test() {
+  fn run_params() -> (u64, usize) {
     let millis_per_cycle = 42;
     let datapoints_to_run = 1337;
 
-    let rp = RunParams { millis_per_cycle,
-                         datapoints_to_run };
+    (millis_per_cycle, datapoints_to_run)
+  }
 
-    assert_eq!(rp.millis_per_cycle, millis_per_cycle);
-    assert_eq!(rp.datapoints_to_run, datapoints_to_run);
+  fn run_params_init() -> RunParams {
+    let (millis_per_cycle, datapoints_to_run) = run_params();
 
+    RunParams { millis_per_cycle,
+                datapoints_to_run }
+  }
+
+  fn query_params() -> (String, String, Vec<String>, String, String, usize) {
     let key_name = String::from("id");
     let timestamp_name = String::from("ts");
     let fluent_names = stringvec!["lon", "lat", "speed"];
@@ -146,13 +148,51 @@ mod tests {
     let order_by = String::from("serial");
     let rows_to_fetch = 32;
 
-    let qp = QueryParams { key_name:       key_name.clone(),
-                           timestamp_name: timestamp_name.clone(),
-                           fluent_names:   fluent_names.clone(),
-                           from_table:     from_table.clone(),
-                           order_by:       order_by.clone(),
-                           rows_to_fetch:  rows_to_fetch, };
+    (key_name,
+     timestamp_name,
+     fluent_names,
+     from_table,
+     order_by,
+     rows_to_fetch)
+  }
 
+  fn query_params_init() -> QueryParams {
+    let (key_name,
+         timestamp_name,
+         fluent_names,
+         from_table,
+         order_by,
+         rows_to_fetch) = query_params();
+
+    QueryParams { key_name,
+                  timestamp_name,
+                  fluent_names,
+                  from_table,
+                  order_by,
+                  rows_to_fetch }
+  }
+
+  fn source_init(rp: &RunParams, qp: &QueryParams) -> Source {
+    Source { run_params:   rp.clone(),
+             query_params: qp.clone(), }
+  }
+
+  #[test]
+  fn source_params_test() {
+    let (millis_per_cycle, datapoints_to_run) = run_params();
+
+    let rp = run_params_init();
+    assert_eq!(rp.millis_per_cycle, millis_per_cycle);
+    assert_eq!(rp.datapoints_to_run, datapoints_to_run);
+
+    let (key_name,
+         timestamp_name,
+         fluent_names,
+         from_table,
+         order_by,
+         rows_to_fetch) = query_params();
+
+    let qp = query_params_init();
     assert_eq!(qp.key_name, key_name);
     assert_eq!(qp.timestamp_name, timestamp_name);
     assert_eq!(qp.fluent_names, fluent_names);
@@ -160,10 +200,15 @@ mod tests {
     assert_eq!(qp.order_by, order_by);
     assert_eq!(qp.rows_to_fetch, rows_to_fetch);
 
-    let src = Source { run_params:   rp.clone(),
-                       query_params: qp.clone(), };
-
+    let src = source_init(&rp, &qp);
     assert_eq!(src.run_params, rp);
     assert_eq!(src.query_params, qp);
+  }
+
+  #[test]
+  fn source_test() {
+    let source = source_init(&run_params_init(), &query_params_init());
+    assert_eq!(source.published_fluents(),
+               stringvec!["lon", "lat", "speed"]);
   }
 }

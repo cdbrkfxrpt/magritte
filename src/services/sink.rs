@@ -7,7 +7,6 @@
 use crate::fluent::AnyFluent;
 
 use eyre::Result;
-use indoc::indoc;
 use serde::Deserialize;
 use tokio::sync::mpsc;
 use tokio_postgres::Client;
@@ -22,18 +21,7 @@ impl Sink {
                    database_client: Client,
                    mut fluent_rx: mpsc::UnboundedReceiver<AnyFluent>)
                    -> Result<()> {
-    let sql_raw = indoc! {r#"
-      insert into
-        magritte.event_stream (
-          fluent_name,
-          keys,
-          timestamp,
-          value,
-          last_change
-        )
-      values
-        ($1, $2, $3, $4,  $5)
-    "#};
+    let sql_raw = include_str!("sink.sql");
 
     while let Some(fluent) = fluent_rx.recv().await {
       if let AnyFluent::Boolean(fluent) = fluent {

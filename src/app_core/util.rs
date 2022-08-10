@@ -12,7 +12,7 @@ use clap::Parser;
 /// Uses the `clap` crate to parse runtime parameters from the command line.
 pub struct CommandLineArgs {
   /// Set path for config file
-  #[clap(short, long, default_value = "./conf/magritte.toml")]
+  #[clap(short, long, default_value = "./conf/app_core.toml")]
   pub config_path: String,
 }
 
@@ -47,7 +47,7 @@ mod tests {
   #[test]
   fn cla_test() {
     let cla = CommandLineArgs::parse();
-    assert_eq!(cla.config_path, String::from("./conf/magritte.toml"));
+    assert_eq!(cla.config_path, String::from("./conf/app_core.toml"));
   }
 
   // #[test]
