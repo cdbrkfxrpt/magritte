@@ -10,6 +10,9 @@ user = "postgres"
 password = "barbershop"
 dbname = "doi105281zenodo1167595"
 
+[broker]
+broadcast_capacity = 32
+
 [source]
   [source.run_params]
   millis_per_cycle = 1
@@ -22,7 +25,5 @@ dbname = "doi105281zenodo1167595"
   from_table = "ais_data.dynamic_ships"
   order_by = "id"
   rows_to_fetch = 32
-
-[broker]
 
 [sink]

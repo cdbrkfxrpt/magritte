@@ -19,8 +19,8 @@ use tracing::info;
 /// Deserialized from config file. Initializes core elements of `magritte`.
 pub struct AppCore {
   database_connector: DatabaseConnector,
-  source:             Source,
   broker:             Broker,
+  source:             Source,
   sink:               Sink,
 }
 
@@ -38,21 +38,23 @@ impl AppCore {
   /// Prepares the database for a run using the following PostgreSQL:
   ///
   /// ```sql
-  #[doc = include_str!("app_core.sql")]
+  #[doc = include_str!("prepare_run.sql")]
   /// ```
   ///
-  /// Furthermore, establishes the connections between `Broker`, `Source` and
-  /// `Sink`, initializes the fluent nodes and registers them at the broker.
-  pub async fn prepare_run(&self) -> Result<()> {
+  /// Furthermore, registers the [`Source`], [`Sink`] and fluent nodes at the
+  /// broker and makes `magritte` ready to run.
+  pub async fn prepare_run(&mut self) -> Result<()> {
     let client = self.database_connector.connect().await?;
 
-    let sql_raw = include_str!("app_core.sql");
+    let sql_raw = include_str!("prepare_run.sql");
     info!("executing SYSTEM run preparation SQL:\n\n{}", sql_raw);
     client.batch_execute(sql_raw).await?;
 
     let sql_raw = include_str!("../../conf/prepare_run.sql");
     info!("executing USER run preparation SQL:\n\n{}", sql_raw);
     client.batch_execute(sql_raw).await?;
+
+    self.broker.register(&mut self.source);
 
     Ok(())
 
@@ -80,7 +82,8 @@ impl AppCore {
 #[cfg(test)]
 mod tests {
   use super::AppCore;
-  use crate::fluent::AnyFluent;
+  use crate::{fluent::AnyFluent,
+              services::{Node, NodeRx}};
 
   use pretty_assertions::assert_eq;
   use tokio::sync::mpsc;
@@ -92,12 +95,13 @@ mod tests {
 
     let database_connector =
       app_core.database_connector.connect().await.unwrap();
-    let source = app_core.source;
+    let mut source = app_core.source;
 
     let (tx, mut rx) = mpsc::unbounded_channel();
+    source.initialize(tx, NodeRx::new());
 
     let runner = tokio::spawn(async move {
-      source.run(database_connector, tx).await.unwrap();
+      source.run(database_connector).await.unwrap();
     });
 
     let AnyFluent::FloatPt(fluent) = rx.recv().await.unwrap() else {
@@ -115,7 +119,7 @@ mod tests {
 
   #[tokio::test]
   async fn app_core_test() {
-    let app_core = AppCore::init().unwrap();
+    let mut app_core = AppCore::init().unwrap();
 
     assert!(app_core.prepare_run().await.is_ok());
   }

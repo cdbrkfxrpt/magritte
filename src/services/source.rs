@@ -4,31 +4,29 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
+use super::{Node, NodeRx, NodeTx};
 use crate::fluent::AnyFluent;
 
 use eyre::Result;
 use serde::Deserialize;
-use tokio::{sync::mpsc, time};
+use tokio::time;
 use tokio_postgres::Client;
 use tracing::info;
 
 
-#[derive(Clone, Debug, PartialEq, Deserialize)]
-/// Holds parameters for the `Source` service of the application, which reads
+#[derive(Clone, Debug, Deserialize)]
+/// Holds parameters for the [`Source`] service of the application, which reads
 /// data from the source (i.e. the PostgreSQL database) and publishes it to the
-/// `Broker` service.
+/// [`Broker`] service.
 pub struct Source {
   run_params:   RunParams,
   query_params: QueryParams,
+  #[serde(skip)]
+  node_tx:      Option<NodeTx>,
 }
 
 impl Source {
-  /// Returns the list of fluents published by this `Source`.
-  pub fn published_fluents(&self) -> Vec<String> {
-    self.query_params.fluent_names.clone()
-  }
-
-  /// Runs the `Source`, retrieving data from the database and publishing
+  /// Runs the [`Source`], retrieving data from the database and publishing
   /// fluents. Consumes the original object.
   ///
   /// Data retrieval is performed using the following SQL:
@@ -36,10 +34,7 @@ impl Source {
   /// ```sql
   #[doc = include_str!("source.sql")]
   /// ```
-  pub async fn run(self,
-                   database_client: Client,
-                   fluent_tx: mpsc::UnboundedSender<AnyFluent>)
-                   -> Result<()> {
+  pub async fn run(self, database_client: Client) -> Result<()> {
     let statement_raw =
       format!(include_str!("source.sql"),
               key_name = self.query_params.key_name,
@@ -81,7 +76,10 @@ impl Source {
             let fluent =
               AnyFluent::new(&fluent_name, &[key], timestamp, value);
 
-            fluent_tx.send(fluent)?;
+            match &self.node_tx {
+              Some(node_tx) => node_tx.send(fluent)?,
+              None => info!("{:?}", fluent),
+            }
           }
           offset += 1;
         }
@@ -96,16 +94,30 @@ impl Source {
   }
 }
 
+impl Node for Source {
+  fn published(&self) -> Vec<String> {
+    self.query_params.fluent_names.clone()
+  }
+
+  fn subscribed(&self) -> Vec<String> {
+    Vec::new()
+  }
+
+  fn initialize(&mut self, node_tx: NodeTx, _: NodeRx) {
+    self.node_tx = Some(node_tx);
+  }
+}
+
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
-/// Holds parameters for the execution of the `Source` service.
+/// Holds parameters for the execution of the [`Source`] service.
 struct RunParams {
   pub millis_per_cycle:  u64,
   pub datapoints_to_run: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
-/// Holds parameters for the database query performed by the `Source` service.
+/// Holds parameters for the database query performed by the [`Source`].
 struct QueryParams {
   pub key_name:       String,
   pub timestamp_name: String,
@@ -120,7 +132,7 @@ struct QueryParams {
 
 #[cfg(test)]
 mod tests {
-  use super::{QueryParams, RunParams, Source};
+  use super::{Node, QueryParams, RunParams, Source};
   use crate::stringvec;
 
   use pretty_assertions::assert_eq;
@@ -174,7 +186,8 @@ mod tests {
 
   fn source_init(rp: &RunParams, qp: &QueryParams) -> Source {
     Source { run_params:   rp.clone(),
-             query_params: qp.clone(), }
+             query_params: qp.clone(),
+             node_tx:      None, }
   }
 
   #[test]
@@ -203,12 +216,13 @@ mod tests {
     let src = source_init(&rp, &qp);
     assert_eq!(src.run_params, rp);
     assert_eq!(src.query_params, qp);
+    assert!(src.node_tx.is_none());
   }
 
   #[test]
   fn source_test() {
     let source = source_init(&run_params_init(), &query_params_init());
-    assert_eq!(source.published_fluents(),
-               stringvec!["lon", "lat", "speed"]);
+    assert_eq!(source.published(), stringvec!["lon", "lat", "speed"]);
+    assert_eq!(source.subscribed(), Vec::<String>::new());
   }
 }

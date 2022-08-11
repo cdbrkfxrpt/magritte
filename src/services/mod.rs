@@ -5,9 +5,11 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 mod broker;
+mod node;
 mod sink;
 mod source;
 
 pub use broker::Broker;
+pub use node::{Node, NodeRx, NodeTx};
 pub use sink::Sink;
 pub use source::Source;

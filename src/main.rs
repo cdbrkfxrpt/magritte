@@ -67,7 +67,7 @@ async fn main() -> Result<()> {
   });
 
   info!("reading command line arguments and config file to init app...");
-  let app_core = AppCore::init()?;
+  let mut app_core = AppCore::init()?;
   info!(?app_core);
 
   info!("preparing database for run...");
