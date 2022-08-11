@@ -25,18 +25,6 @@ grcov -s . --llvm --branch --ignore-not-existing    \
       -o ./target/coverage/full.info ./target/debug
 
 # filter the report using lcov
-# order: main first, then alphabetic
-lcov --extract ./target/coverage/full.info \
-     "src/main.rs"                         \
-     "src/app_core/app_init.rs"                     \
-     "src/broker.rs"                       \
-     "src/database.rs"                     \
-     "src/fluent/any_fluent.rs"            \
-     "src/fluent/fluent.rs"                \
-     "src/source.rs"                       \
-     -o ./target/coverage/magritte.info
-
-# filter the report using lcov
 lcov --extract ./target/coverage/full.info                              \
   $(find src -type f -regextype posix-extended -regex '.*\b\w+?\.rs$')  \
   -o ./target/coverage/extracted.info
