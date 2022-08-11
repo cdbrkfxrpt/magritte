@@ -4,26 +4,33 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
+use super::{Node, NodeRx, NodeTx};
 use crate::fluent::AnyFluent;
 
-use eyre::Result;
+use eyre::{bail, Result};
 use serde::Deserialize;
-use tokio::sync::mpsc;
 use tokio_postgres::Client;
+use tokio_stream::StreamExt;
 // use tracing::info;
 
 
-#[derive(Clone, Debug, PartialEq, Deserialize)]
-pub struct Sink {}
+#[derive(Debug, Deserialize)]
+pub struct Sink {
+  subscribes_to: Vec<String>,
+  #[serde(skip)]
+  node_rx:       Option<NodeRx>,
+}
 
 impl Sink {
-  pub async fn run(self,
-                   database_client: Client,
-                   mut fluent_rx: mpsc::UnboundedReceiver<AnyFluent>)
-                   -> Result<()> {
+  pub async fn run(self, database_client: Client) -> Result<()> {
+    let mut node_rx = match self.node_rx {
+      Some(node_rx) => node_rx,
+      None => bail!("Sink not initialized, aborting"),
+    };
+
     let sql_raw = include_str!("sink.sql");
 
-    while let Some(fluent) = fluent_rx.recv().await {
+    while let Some((_, Ok(fluent))) = node_rx.next().await {
       if let AnyFluent::Boolean(fluent) = fluent {
         let name = fluent.name();
         let keys = fluent.keys().iter().map(|&e| e as i32).collect::<Vec<_>>();
@@ -41,5 +48,19 @@ impl Sink {
       }
     }
     Ok(())
+  }
+}
+
+impl Node for Sink {
+  fn publishes(&self) -> Vec<String> {
+    Vec::new()
+  }
+
+  fn subscribes_to(&self) -> Vec<String> {
+    self.subscribes_to.clone()
+  }
+
+  fn initialize(&mut self, _: NodeTx, node_rx: NodeRx) {
+    self.node_rx = Some(node_rx);
   }
 }

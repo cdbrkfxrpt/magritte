@@ -4,14 +4,14 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use super::{database::DatabaseConnector, util};
-use crate::services::{Broker, Sink, Source};
+use super::{util, DatabaseConnector};
+use crate::{boxvec,
+            services::{Broker, Node, Sink, Source}};
 
 use clap::Parser;
 use eyre::Result;
 use serde::Deserialize;
 use std::fs;
-use tokio::time;
 use tracing::info;
 
 
@@ -54,25 +54,28 @@ impl AppCore {
     info!("executing USER run preparation SQL:\n\n{}", sql_raw);
     client.batch_execute(sql_raw).await?;
 
-    self.broker.register(&mut self.source);
+    let nodes: Vec<Box<&mut dyn Node>> =
+      boxvec![&mut self.source, &mut self.sink];
 
-    Ok(())
-
-    // broker.register_source(source);
-    // broker.register_sink(sink);
     // for node in build_node_index() {
-    //   broker.register_node(node)?;
+    //   nodes.push(node);
     // }
+
+    self.broker.register_all(nodes);
+    Ok(())
   }
 
   pub async fn run(self) -> Result<()> {
-    let mut counter = 0;
-    let mut interval = time::interval(time::Duration::from_millis(256));
-    loop {
-      info!("counter value at {:8}", counter);
-      interval.tick().await;
-      counter += 1;
-    }
+    //
+    // in here we want to start
+    // - the broker in its own worker task
+    // - the sink in its own worker task
+    // - the source, which  we're awaiting
+    //
+    tokio::spawn(async move {
+      self.broker.run().await.expect("broker has stopped");
+    });
+    Ok(())
   }
 }
 
@@ -83,7 +86,8 @@ impl AppCore {
 mod tests {
   use super::AppCore;
   use crate::{fluent::AnyFluent,
-              services::{Node, NodeRx}};
+              services::{Node, NodeRx},
+              stringvec};
 
   use pretty_assertions::assert_eq;
   use tokio::sync::mpsc;
@@ -93,15 +97,17 @@ mod tests {
   async fn source_test() {
     let app_core = AppCore::init().unwrap();
 
-    let database_connector =
-      app_core.database_connector.connect().await.unwrap();
     let mut source = app_core.source;
+
+    assert_eq!(source.publishes(), stringvec!["lon", "lat", "speed"]);
+    assert_eq!(source.subscribes_to(), Vec::<String>::new());
 
     let (tx, mut rx) = mpsc::unbounded_channel();
     source.initialize(tx, NodeRx::new());
 
+    let database_client = app_core.database_connector.connect().await.unwrap();
     let runner = tokio::spawn(async move {
-      source.run(database_connector).await.unwrap();
+      source.run(database_client).await.unwrap();
     });
 
     let AnyFluent::FloatPt(fluent) = rx.recv().await.unwrap() else {
@@ -115,6 +121,18 @@ mod tests {
     assert_eq!(fluent.last_change(), 1443650402);
 
     runner.abort();
+  }
+
+  #[tokio::test]
+  async fn source_unitialized_test() {
+    let app_core = AppCore::init().unwrap();
+
+    let source = app_core.source;
+    let database_client = app_core.database_connector.connect().await.unwrap();
+
+    assert_eq!(source.publishes(), stringvec!["lon", "lat", "speed"]);
+    assert_eq!(source.subscribes_to(), Vec::<String>::new());
+    assert!(source.run(database_client).await.is_err());
   }
 
   #[tokio::test]

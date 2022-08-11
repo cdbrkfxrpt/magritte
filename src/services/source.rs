@@ -7,18 +7,19 @@
 use super::{Node, NodeRx, NodeTx};
 use crate::fluent::AnyFluent;
 
-use eyre::Result;
+use eyre::{bail, Result};
 use serde::Deserialize;
 use tokio::time;
 use tokio_postgres::Client;
 use tracing::info;
 
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Debug, Deserialize)]
 /// Holds parameters for the [`Source`] service of the application, which reads
 /// data from the source (i.e. the PostgreSQL database) and publishes it to the
 /// [`Broker`] service.
 pub struct Source {
+  publishes:    Vec<String>,
   run_params:   RunParams,
   query_params: QueryParams,
   #[serde(skip)]
@@ -35,11 +36,16 @@ impl Source {
   #[doc = include_str!("source.sql")]
   /// ```
   pub async fn run(self, database_client: Client) -> Result<()> {
+    let node_tx = match self.node_tx {
+      Some(node_tx) => node_tx,
+      None => bail!("Source not initialized, aborting"),
+    };
+
     let statement_raw =
       format!(include_str!("source.sql"),
               key_name = self.query_params.key_name,
               timestamp_name = self.query_params.timestamp_name,
-              fluent_names = self.query_params.fluent_names.join(", "),
+              fluent_names = self.publishes.join(", "),
               from_table = self.query_params.from_table,
               order_by = self.query_params.order_by,
               rows_to_fetch = self.query_params.rows_to_fetch);
@@ -71,15 +77,12 @@ impl Source {
         timestamp = row.get::<&str, i64>("timestamp") as usize;
 
         if timestamp <= time {
-          for fluent_name in self.query_params.fluent_names.iter() {
+          for fluent_name in self.publishes.iter() {
             let value: f64 = row.get(fluent_name.as_str());
             let fluent =
               AnyFluent::new(&fluent_name, &[key], timestamp, value);
 
-            match &self.node_tx {
-              Some(node_tx) => node_tx.send(fluent)?,
-              None => info!("{:?}", fluent),
-            }
+            node_tx.send(fluent)?;
           }
           offset += 1;
         }
@@ -95,11 +98,11 @@ impl Source {
 }
 
 impl Node for Source {
-  fn published(&self) -> Vec<String> {
-    self.query_params.fluent_names.clone()
+  fn publishes(&self) -> Vec<String> {
+    self.publishes.clone()
   }
 
-  fn subscribed(&self) -> Vec<String> {
+  fn subscribes_to(&self) -> Vec<String> {
     Vec::new()
   }
 
@@ -121,7 +124,6 @@ struct RunParams {
 struct QueryParams {
   pub key_name:       String,
   pub timestamp_name: String,
-  pub fluent_names:   Vec<String>,
   pub from_table:     String,
   pub order_by:       String,
   pub rows_to_fetch:  usize,
@@ -152,40 +154,30 @@ mod tests {
                 datapoints_to_run }
   }
 
-  fn query_params() -> (String, String, Vec<String>, String, String, usize) {
+  fn query_params() -> (String, String, String, String, usize) {
     let key_name = String::from("id");
     let timestamp_name = String::from("ts");
-    let fluent_names = stringvec!["lon", "lat", "speed"];
     let from_table = String::from("the.matrix");
     let order_by = String::from("serial");
     let rows_to_fetch = 32;
 
-    (key_name,
-     timestamp_name,
-     fluent_names,
-     from_table,
-     order_by,
-     rows_to_fetch)
+    (key_name, timestamp_name, from_table, order_by, rows_to_fetch)
   }
 
   fn query_params_init() -> QueryParams {
-    let (key_name,
-         timestamp_name,
-         fluent_names,
-         from_table,
-         order_by,
-         rows_to_fetch) = query_params();
+    let (key_name, timestamp_name, from_table, order_by, rows_to_fetch) =
+      query_params();
 
     QueryParams { key_name,
                   timestamp_name,
-                  fluent_names,
                   from_table,
                   order_by,
                   rows_to_fetch }
   }
 
   fn source_init(rp: &RunParams, qp: &QueryParams) -> Source {
-    Source { run_params:   rp.clone(),
+    Source { publishes:    stringvec!["lon", "lat", "speed"],
+             run_params:   rp.clone(),
              query_params: qp.clone(),
              node_tx:      None, }
   }
@@ -198,31 +190,21 @@ mod tests {
     assert_eq!(rp.millis_per_cycle, millis_per_cycle);
     assert_eq!(rp.datapoints_to_run, datapoints_to_run);
 
-    let (key_name,
-         timestamp_name,
-         fluent_names,
-         from_table,
-         order_by,
-         rows_to_fetch) = query_params();
+    let (key_name, timestamp_name, from_table, order_by, rows_to_fetch) =
+      query_params();
 
     let qp = query_params_init();
     assert_eq!(qp.key_name, key_name);
     assert_eq!(qp.timestamp_name, timestamp_name);
-    assert_eq!(qp.fluent_names, fluent_names);
     assert_eq!(qp.from_table, from_table);
     assert_eq!(qp.order_by, order_by);
     assert_eq!(qp.rows_to_fetch, rows_to_fetch);
 
     let src = source_init(&rp, &qp);
+    assert_eq!(src.publishes, stringvec!["lon", "lat", "speed"]);
+    assert_eq!(src.publishes(), stringvec!["lon", "lat", "speed"]);
     assert_eq!(src.run_params, rp);
     assert_eq!(src.query_params, qp);
     assert!(src.node_tx.is_none());
-  }
-
-  #[test]
-  fn source_test() {
-    let source = source_init(&run_params_init(), &query_params_init());
-    assert_eq!(source.published(), stringvec!["lon", "lat", "speed"]);
-    assert_eq!(source.subscribed(), Vec::<String>::new());
   }
 }

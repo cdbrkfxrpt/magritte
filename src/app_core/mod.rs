@@ -5,7 +5,8 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 mod app_core;
-mod database;
+mod database_connector;
 mod util;
 
 pub use app_core::AppCore;
+pub use database_connector::DatabaseConnector;

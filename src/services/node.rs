@@ -14,8 +14,8 @@ pub type NodeTx = mpsc::UnboundedSender<AnyFluent>;
 pub type NodeRx = StreamMap<String, BroadcastStream<AnyFluent>>;
 
 
-pub trait Node {
-  fn published(&self) -> Vec<String>;
-  fn subscribed(&self) -> Vec<String>;
+pub trait Node: Send {
+  fn publishes(&self) -> Vec<String>;
+  fn subscribes_to(&self) -> Vec<String>;
   fn initialize(&mut self, node_tx: NodeTx, node_rx: NodeRx);
 }

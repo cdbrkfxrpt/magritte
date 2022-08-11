@@ -7,10 +7,10 @@
 use super::{Node, NodeTx};
 use crate::fluent::AnyFluent;
 
+use eyre::Result;
 use serde::Deserialize;
 use std::collections::HashMap;
 use tokio::{sync::{broadcast, mpsc},
-            task::JoinHandle,
             time};
 use tokio_stream::StreamMap;
 use tracing::info;
@@ -29,10 +29,11 @@ pub struct Broker {
 }
 
 impl Broker {
-  pub fn register<T: Node>(&mut self, node: &mut T) {
-    // add all fluents, whether published or subscribed, into the known list of
-    // fluents, and create broadcast sender handles to them
-    for fluent_name in node.published().iter().chain(node.subscribed().iter())
+  pub fn register(&mut self, node: Box<&mut dyn Node>) {
+    // add all fluents, whether published or subscribed to by the node, into
+    // the known list of fluents, and create broadcast sender handles to them
+    for fluent_name in
+      node.publishes().iter().chain(node.subscribes_to().iter())
     {
       if !self.fluents.contains_key(fluent_name) {
         let (tx, _) = broadcast::channel(self.broadcast_capacity);
@@ -42,7 +43,7 @@ impl Broker {
 
     // bundle all subscribed fluent receivers together in one stream
     let mut stream_map = StreamMap::new();
-    for fluent_name in node.subscribed() {
+    for fluent_name in node.subscribes_to() {
       stream_map.insert(fluent_name.clone(),
                         self.fluents[&fluent_name].subscribe().into());
     }
@@ -51,16 +52,21 @@ impl Broker {
     node.initialize(self.node_ch.0.clone(), stream_map)
   }
 
-  pub fn run(self) -> JoinHandle<()> {
-    tokio::spawn(async move {
-      let mut counter = 0;
-      let mut interval = time::interval(time::Duration::from_millis(256));
-      loop {
-        info!("counter value at {:8}", counter);
-        interval.tick().await;
-        counter += 1;
-      }
-    })
+  pub fn register_all(&mut self, nodes: Vec<Box<&mut dyn Node>>) {
+    for node in nodes {
+      self.register(node);
+    }
+  }
+
+  pub async fn run(self) -> Result<()> {
+    let mut counter = 0;
+    let mut interval = time::interval(time::Duration::from_millis(256));
+    while counter < 1_000 {
+      info!("counter value at {:8}", counter);
+      interval.tick().await;
+      counter += 1;
+    }
+    Ok(())
   }
 }
 

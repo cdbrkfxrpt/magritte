@@ -21,8 +21,15 @@ pub struct CommandLineArgs {
 /// Use this like you would use `vec![]`, giving it `&str` elements as
 /// arguments, and you'll get a `Vec<String>` with your elements.
 macro_rules! stringvec {
-  [$($x:literal),* $(,)?] => (vec![$(String::from($x)),*]);
+  [$( $x:literal ),* $(,)?] => (vec![$( String::from($x) ),*]);
 }
+
+
+#[macro_export]
+macro_rules! boxvec {
+  [$( $x:expr ),* $(,)?] => (vec![$( Box::new($x) ),*]);
+}
+
 
 #[allow(unused)]
 pub fn round_f32(n: f32, d: i64) -> f32 {
