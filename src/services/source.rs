@@ -103,10 +103,18 @@ impl StructuralNode for Source {
             node_tx.send(fluent)?;
           }
           offset += 1;
+
+          // info!("ran {} datapoints", offset);
+          if self.run_params.datapoints_to_run > 0
+             && offset == self.run_params.datapoints_to_run
+          {
+            info!("reached limit of datapoints to run ({})",
+                  self.run_params.datapoints_to_run);
+            return Ok(());
+          }
         }
       }
       time += 1;
-      info!("ran {} datapoints", offset);
 
       interval.tick().await;
     }

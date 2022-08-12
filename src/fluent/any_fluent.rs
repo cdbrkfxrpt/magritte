@@ -14,6 +14,7 @@ pub enum AnyFluent {
   Integer(Fluent<i64>),
   FloatPt(Fluent<f64>),
   Boolean(Fluent<bool>),
+  PlanePt(Fluent<(f64, f64)>),
 }
 
 impl AnyFluent {
@@ -26,19 +27,17 @@ impl AnyFluent {
                                   -> Self {
     ValueType::select(name, keys, timestamp, value)
   }
-}
 
-/// Helper trait to enable selection of the correct `AnyFluent` variant based
-/// on the type of the provided value.
-pub trait Selector {
-  /// Implement this function for your typ, returning an `AnyFluent` variant
-  /// with a new `Fluent` inside. Implementations are provided for: `String`,
-  /// `i64`, `f64`, `bool`.
-  fn select(name: &str,
-            keys: &[Key],
-            timestamp: Timestamp,
-            value: Self)
-            -> AnyFluent;
+  /// Helper function to get fluent name.
+  pub fn name(&self) -> &str {
+    match self {
+      Self::Textual(fluent) => fluent.name(),
+      Self::Integer(fluent) => fluent.name(),
+      Self::FloatPt(fluent) => fluent.name(),
+      Self::Boolean(fluent) => fluent.name(),
+      Self::PlanePt(fluent) => fluent.name(),
+    }
+  }
 }
 
 impl Selector for String {
@@ -79,6 +78,29 @@ impl Selector for bool {
             -> AnyFluent {
     AnyFluent::Boolean(Fluent::new(name, keys, timestamp, value))
   }
+}
+
+impl Selector for (f64, f64) {
+  fn select(name: &str,
+            keys: &[Key],
+            timestamp: Timestamp,
+            value: Self)
+            -> AnyFluent {
+    AnyFluent::PlanePt(Fluent::new(name, keys, timestamp, value))
+  }
+}
+
+/// Helper trait to enable selection of the correct `AnyFluent` variant based
+/// on the type of the provided value.
+pub trait Selector {
+  /// Implement this function for your type, returning an `AnyFluent` variant
+  /// with a new `Fluent` inside. Implementations are provided for: `String`,
+  /// `i64`, `f64`, `bool`.
+  fn select(name: &str,
+            keys: &[Key],
+            timestamp: Timestamp,
+            value: Self)
+            -> AnyFluent;
 }
 
 // fin --------------------------------------------------------------------- //

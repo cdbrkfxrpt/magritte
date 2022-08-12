@@ -10,10 +10,9 @@ use crate::fluent::AnyFluent;
 use eyre::Result;
 use serde::Deserialize;
 use std::collections::HashMap;
-use tokio::{sync::{broadcast, mpsc},
-            time};
+use tokio::sync::{broadcast, mpsc};
 use tokio_stream::StreamMap;
-use tracing::info;
+// use tracing::info;
 
 
 type InputRx = mpsc::UnboundedReceiver<AnyFluent>;
@@ -59,12 +58,9 @@ impl Broker {
   }
 
   pub async fn run(self) -> Result<()> {
-    let mut counter = 0;
-    let mut interval = time::interval(time::Duration::from_millis(256));
-    while counter < 1_000 {
-      info!("counter value at {:8}", counter);
-      interval.tick().await;
-      counter += 1;
+    let mut input_rx = self.node_ch.1;
+    while let Some(any_fluent) = input_rx.recv().await {
+      self.fluents[any_fluent.name()].send(any_fluent)?;
     }
     Ok(())
   }

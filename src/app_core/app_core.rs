@@ -6,7 +6,7 @@
 
 use super::{util, DatabaseConnector};
 use crate::{boxvec,
-            services::{Broker, Node, Sink, Source}};
+            services::{Broker, Node, Sink, Source, StructuralNode}};
 
 use clap::Parser;
 use eyre::Result;
@@ -65,15 +65,35 @@ impl AppCore {
     Ok(())
   }
 
+  /// Runs the application. Consumes the `AppCore` object.
   pub async fn run(self) -> Result<()> {
-    // in here we want to start
-    // - the broker in its own worker task
-    // - the sink in its own worker task
-    // - the source, which  we're awaiting
-    //
-    tokio::spawn(async move {
-      self.broker.run().await.expect("broker has stopped");
+    // decompose self into contained handles
+    let Self { database_connector,
+               broker,
+               source,
+               sink, } = self;
+
+    // start the broker task, creating a handle to it.
+    let broker_task = tokio::spawn(async move {
+      broker.run().await.expect("broker has stopped");
     });
+
+    // establish database connection and start the sink task, handing it the
+    // database client handle. create a handle to the task.
+    let database_client = database_connector.connect().await?;
+    let sink_task = tokio::spawn(async move {
+      sink.run(database_client).await.expect("sink has stopped");
+    });
+
+    // establish a database conection and start the source task, handing it the
+    // database client handle. await the source task.
+    let database_client = database_connector.connect().await?;
+    source.run(database_client).await?;
+
+    // if source task has ended, abort the sink and the broker tasks.
+    sink_task.abort();
+    broker_task.abort();
+
     Ok(())
   }
 }
