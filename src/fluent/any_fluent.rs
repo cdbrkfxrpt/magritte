@@ -195,4 +195,25 @@ mod tests {
     assert_eq!(&dbg_print,
                r#"Boolean(Fluent { name: "boolean_fluent", keys: [23, 42], timestamp: 1337, value: true, last_change: 1337 })"#);
   }
+
+  #[test]
+  fn planept_fluent_test() {
+    let name = "planept_fluent";
+    let keys = &[23, 42];
+    let timestamp = 1337;
+    let value = (3.14159, 2.71828);
+
+    let any_fluent = AnyFluent::new(name, keys, timestamp, value);
+
+    assert!(matches!(any_fluent, AnyFluent::PlanePt(..)));
+
+    let AnyFluent::PlanePt(extracted) = any_fluent.clone() else { panic!() };
+    let fluent = Fluent::new(name, keys, timestamp, value);
+
+    assert_eq!(extracted, fluent);
+
+    let dbg_print = format!("{:?}", any_fluent);
+    assert_eq!(&dbg_print,
+               r#"PlanePt(Fluent { name: "planept_fluent", keys: [23, 42], timestamp: 1337, value: (3.14159, 2.71828), last_change: 1337 })"#);
+  }
 }
