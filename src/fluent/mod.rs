@@ -9,9 +9,11 @@
 
 mod any_fluent;
 mod fluent;
+mod fluent_handler;
 
 pub use any_fluent::AnyFluent;
 pub use fluent::Fluent;
+pub use fluent_handler::FluentHandler;
 
 
 /// Type alias for key, i.e. sub-stream identifier, type.

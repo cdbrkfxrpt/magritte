@@ -57,7 +57,12 @@ impl AppCore {
     let nodes: Vec<Box<&mut dyn Node>> =
       boxvec![&mut self.source, &mut self.sink];
 
-    // for node in build_node_index() {
+    // TODO
+    // - set up KnowledgeRequestHandler
+    // - set up channel for KnowledgeRequests
+    // ... and that stuff underneath here
+
+    // for node in build_node_index(knowledge_request_tx.clone()) {
     //   nodes.push(node);
     // }
 
