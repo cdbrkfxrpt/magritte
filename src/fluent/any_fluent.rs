@@ -122,6 +122,7 @@ mod tests {
     let any_fluent = AnyFluent::new(name, keys, timestamp, value.clone());
 
     assert!(matches!(any_fluent, AnyFluent::Textual(..)));
+    assert_eq!(any_fluent.name(), name);
 
     let AnyFluent::Textual(extracted) = any_fluent.clone() else { panic!() };
     let fluent = Fluent::new(name, keys, timestamp, value.clone());
@@ -143,6 +144,7 @@ mod tests {
     let any_fluent = AnyFluent::new(name, keys, timestamp, value);
 
     assert!(matches!(any_fluent, AnyFluent::Integer(..)));
+    assert_eq!(any_fluent.name(), name);
 
     let AnyFluent::Integer(extracted) = any_fluent.clone() else { panic!() };
     let fluent = Fluent::new(name, keys, timestamp, value);
@@ -164,6 +166,7 @@ mod tests {
     let any_fluent = AnyFluent::new(name, keys, timestamp, value);
 
     assert!(matches!(any_fluent, AnyFluent::FloatPt(..)));
+    assert_eq!(any_fluent.name(), name);
 
     let AnyFluent::FloatPt(extracted) = any_fluent.clone() else { panic!() };
     let fluent = Fluent::new(name, keys, timestamp, value);
@@ -185,6 +188,7 @@ mod tests {
     let any_fluent = AnyFluent::new(name, keys, timestamp, value);
 
     assert!(matches!(any_fluent, AnyFluent::Boolean(..)));
+    assert_eq!(any_fluent.name(), name);
 
     let AnyFluent::Boolean(extracted) = any_fluent.clone() else { panic!() };
     let fluent = Fluent::new(name, keys, timestamp, value);
@@ -206,6 +210,7 @@ mod tests {
     let any_fluent = AnyFluent::new(name, keys, timestamp, value);
 
     assert!(matches!(any_fluent, AnyFluent::PlanePt(..)));
+    assert_eq!(any_fluent.name(), name);
 
     let AnyFluent::PlanePt(extracted) = any_fluent.clone() else { panic!() };
     let fluent = Fluent::new(name, keys, timestamp, value);
