@@ -15,19 +15,20 @@ use tokio_stream::StreamMap;
 // use tracing::info;
 
 
-type InputRx = mpsc::UnboundedReceiver<AnyFluent>;
-
-
 #[derive(Debug, Deserialize)]
+/// Core service of the application. Receives fluents from publisher nodes and
+/// forwards them to subscriber nodes efficiently.
 pub struct Broker {
   broadcast_capacity: usize,
   #[serde(skip)]
   fluents:            HashMap<String, broadcast::Sender<AnyFluent>>,
   #[serde(skip, default = "mpsc::unbounded_channel")]
-  node_ch:            (NodeTx, InputRx),
+  node_ch:            (NodeTx, mpsc::UnboundedReceiver<AnyFluent>),
 }
 
 impl Broker {
+  /// Method to register a [`Node`] at the [`Broker`]. Creates channels to
+  /// communicate fluents as required and initializes [`Node`]s accordingly.
   pub fn register(&mut self, node: Box<&mut dyn Node>) {
     // add all fluents, whether published or subscribed to by the node, into
     // the known list of fluents, and create broadcast sender handles to them
@@ -51,12 +52,16 @@ impl Broker {
     node.initialize(self.node_ch.0.clone(), stream_map)
   }
 
+  /// Helper method to register a `Vec` of [`Node`]s at once. Iterates `Vec`,
+  /// using the [`register`](Self::register) method to register them.
   pub fn register_all(&mut self, nodes: Vec<Box<&mut dyn Node>>) {
     for node in nodes {
       self.register(node);
     }
   }
 
+  /// Runs the [`Broker`], receiving fluents from [`Node`]s and forwarding them
+  /// to the  [`Node`]s which are subscribed to the respective fluent.
   pub async fn run(self) -> Result<()> {
     let mut input_rx = self.node_ch.1;
     while let Some(any_fluent) = input_rx.recv().await {
