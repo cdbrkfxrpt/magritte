@@ -4,9 +4,10 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use super::{Node, NodeRx, NodeTx};
+use super::{Node, NodeRx, NodeTx, StructuralNode};
 use crate::fluent::AnyFluent;
 
+use async_trait::async_trait;
 use eyre::{bail, Result};
 use serde::Deserialize;
 use tokio_postgres::Client;
@@ -21,8 +22,9 @@ pub struct Sink {
   node_rx:       Option<NodeRx>,
 }
 
-impl Sink {
-  pub async fn run(self, database_client: Client) -> Result<()> {
+#[async_trait]
+impl StructuralNode for Sink {
+  async fn run(self, database_client: Client) -> Result<()> {
     let mut node_rx = match self.node_rx {
       Some(node_rx) => node_rx,
       None => bail!("Sink not initialized, aborting"),

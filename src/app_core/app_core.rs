@@ -66,7 +66,6 @@ impl AppCore {
   }
 
   pub async fn run(self) -> Result<()> {
-    //
     // in here we want to start
     // - the broker in its own worker task
     // - the sink in its own worker task
@@ -86,7 +85,7 @@ impl AppCore {
 mod tests {
   use super::AppCore;
   use crate::{fluent::AnyFluent,
-              services::{Node, NodeRx},
+              services::{Node, NodeRx, StructuralNode},
               stringvec};
 
   use pretty_assertions::assert_eq;

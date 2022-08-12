@@ -4,9 +4,10 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use super::{Node, NodeRx, NodeTx};
+use super::{Node, NodeRx, NodeTx, StructuralNode};
 use crate::fluent::AnyFluent;
 
+use async_trait::async_trait;
 use eyre::{bail, Result};
 use serde::Deserialize;
 use tokio::time;
@@ -26,7 +27,22 @@ pub struct Source {
   node_tx:      Option<NodeTx>,
 }
 
-impl Source {
+impl Node for Source {
+  fn publishes(&self) -> Vec<String> {
+    self.publishes.clone()
+  }
+
+  fn subscribes_to(&self) -> Vec<String> {
+    Vec::new()
+  }
+
+  fn initialize(&mut self, node_tx: NodeTx, _: NodeRx) {
+    self.node_tx = Some(node_tx);
+  }
+}
+
+#[async_trait]
+impl StructuralNode for Source {
   /// Runs the [`Source`], retrieving data from the database and publishing
   /// fluents. Consumes the original object.
   ///
@@ -35,7 +51,7 @@ impl Source {
   /// ```sql
   #[doc = include_str!("source.sql")]
   /// ```
-  pub async fn run(self, database_client: Client) -> Result<()> {
+  async fn run(self, database_client: Client) -> Result<()> {
     let node_tx = match self.node_tx {
       Some(node_tx) => node_tx,
       None => bail!("Source not initialized, aborting"),
@@ -94,20 +110,6 @@ impl Source {
     }
 
     Ok(())
-  }
-}
-
-impl Node for Source {
-  fn publishes(&self) -> Vec<String> {
-    self.publishes.clone()
-  }
-
-  fn subscribes_to(&self) -> Vec<String> {
-    Vec::new()
-  }
-
-  fn initialize(&mut self, node_tx: NodeTx, _: NodeRx) {
-    self.node_tx = Some(node_tx);
   }
 }
 

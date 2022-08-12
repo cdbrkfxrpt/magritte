@@ -10,6 +10,6 @@ mod sink;
 mod source;
 
 pub use broker::Broker;
-pub use node::{Node, NodeRx, NodeTx};
+pub use node::{FluentNode, Node, NodeRx, NodeTx, StructuralNode};
 pub use sink::Sink;
 pub use source::Source;
