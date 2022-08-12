@@ -10,8 +10,8 @@ use tokio_postgres as tp;
 use tracing::{error, info};
 
 
-#[derive(Clone, Debug, Default, PartialEq, Deserialize)]
-/// Singleton used to establish database connections from one single place.
+#[derive(Debug, Deserialize)]
+/// "Singleton" used to establish database connections from one single place.
 pub struct DatabaseConnector {
   host:     String,
   user:     String,
@@ -47,6 +47,7 @@ impl DatabaseConnector {
 mod tests {
   use super::DatabaseConnector;
 
+  use indoc::indoc;
   use pretty_assertions::assert_eq;
 
 
@@ -67,6 +68,16 @@ mod tests {
     assert_eq!(dbc.user, user);
     assert_eq!(dbc.password, password);
     assert_eq!(dbc.dbname, dbname);
+
+    let dbg_str = indoc! {r#"
+      DatabaseConnector {
+          host: "morpheus",
+          user: "neo",
+          password: "trinity",
+          dbname: "nebukadnezar",
+      }"#};
+
+    assert_eq!(format!("{:#?}", dbc), dbg_str);
 
     // ideally the methods connection to the database could be tested here as
     // well, for that to happen, we'd need either a mock database or a

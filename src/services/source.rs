@@ -16,9 +16,8 @@ use tracing::info;
 
 
 #[derive(Debug, Deserialize)]
-/// Holds parameters for the [`Source`] service of the application, which reads
-/// data from the source (i.e. the PostgreSQL database) and publishes it to the
-/// [`Broker`] service.
+/// Reads data from the source (i.e. the PostgreSQL database) and publishes it
+/// to the [`Broker`](super::Broker) service.
 pub struct Source {
   publishes:    Vec<String>,
   run_params:   RunParams,
@@ -28,14 +27,17 @@ pub struct Source {
 }
 
 impl Node for Source {
+  /// `Source` publishes fluents specified by name in the app configuration.
   fn publishes(&self) -> Vec<String> {
     self.publishes.clone()
   }
 
+  /// `Source` subscribes to no fluents. Implmenetation returns empty `Vec`.
   fn subscribes_to(&self) -> Vec<String> {
     Vec::new()
   }
 
+  /// `Source` requires only a sender handle since it subscribes to no fluents.
   fn initialize(&mut self, node_tx: NodeTx, _: NodeRx) {
     self.node_tx = Some(node_tx);
   }
@@ -44,7 +46,7 @@ impl Node for Source {
 #[async_trait]
 impl StructuralNode for Source {
   /// Runs the [`Source`], retrieving data from the database and publishing
-  /// fluents. Consumes the original object.
+  /// fluents to the [`Broker`](super::Broker). Consumes the original object.
   ///
   /// Data retrieval is performed using the following SQL:
   ///
@@ -185,7 +187,7 @@ mod tests {
   }
 
   #[test]
-  fn source_params_test() {
+  fn source_test() {
     let (millis_per_cycle, datapoints_to_run) = run_params();
 
     let rp = run_params_init();
@@ -205,6 +207,7 @@ mod tests {
     let src = source_init(&rp, &qp);
     assert_eq!(src.publishes, stringvec!["lon", "lat", "speed"]);
     assert_eq!(src.publishes(), stringvec!["lon", "lat", "speed"]);
+    assert_eq!(src.subscribes_to(), Vec::<String>::new());
     assert_eq!(src.run_params, rp);
     assert_eq!(src.query_params, qp);
     assert!(src.node_tx.is_none());
