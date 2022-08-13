@@ -14,11 +14,15 @@ use tokio_postgres as tp;
 use tracing::{error, info};
 
 
+/// Helper type for sender component of database request channel.
 pub type RequestTx = mpsc::UnboundedSender<DatabaseRequest>;
+/// Helper type for receiver component of database request channel.
 pub type RequestRx = mpsc::UnboundedReceiver<DatabaseRequest>;
 
 
 #[derive(Debug)]
+/// Used to request the execution and response of functions which rely on a
+/// database connection via the request handler of a [`Database`] object.
 pub struct DatabaseRequest {
   fn_name:     String,
   fn_input:    Vec<AnyFluent>,
@@ -59,10 +63,12 @@ impl Database {
     Ok(client)
   }
 
+  /// Retrieve sender side of channel to send database requests.
   pub fn request_tx(&self) -> RequestTx {
     self.request_ch.0.clone()
   }
 
+  /// Spawn a new request handler which can execute asynchronously.
   pub fn request_handler(&mut self) -> JoinHandle<()> {
     let new_db = Self { host:       self.host.clone(),
                         user:       self.user.clone(),
