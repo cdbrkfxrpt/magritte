@@ -16,8 +16,8 @@ use tracing::info;
 
 
 #[derive(Debug, Deserialize)]
-/// Receives [`AnyFluent`]s from the [`Broker`](super::Broker) service and
-/// writes them to the PostgreSQL database.
+/// Receives [`AnyFluent`]s from the [`Broker`](crate::app_core::Broker)
+/// service and writes them to the PostgreSQL database.
 pub struct Sink {
   subscribes_to: Vec<String>,
   #[serde(skip)]
@@ -43,8 +43,9 @@ impl Node for Sink {
 
 #[async_trait]
 impl StructuralNode for Sink {
-  /// Runs the [`Sink`], receiving fluents from the [`Broker`](super::Broker)
-  /// and writing them to the database. Consumes the original object.
+  /// Runs the [`Sink`], receiving fluents from the
+  /// [`Broker`](crate::app_core::Broker) and writing them to the database.
+  /// Consumes the original object.
   async fn run(self, database_client: Client) -> Result<()> {
     let mut node_rx = match self.node_rx {
       Some(node_rx) => node_rx,

@@ -14,7 +14,7 @@ use tokio_stream::{wrappers::BroadcastStream, StreamMap};
 
 
 /// Helper type for [`Node`] senders. All [`Node`]s publish [`AnyFluent`]s to
-/// the [`Broker`](super::Broker) using this kind of sender.
+/// the [`Broker`](crate::app_core::Broker) using this kind of sender.
 pub type NodeTx = mpsc::UnboundedSender<AnyFluent>;
 
 /// Helper type  for [`Node`] receivers. All [`Node`]s receive [`AnyFluent`]s
@@ -23,7 +23,7 @@ pub type NodeRx = StreamMap<String, BroadcastStream<AnyFluent>>;
 
 
 /// Any type implementing this trait can register itself as a node at the
-/// [`Broker`](super::Broker) service.
+/// [`Broker`](crate::app_core::Broker) service.
 pub trait Node: Send {
   /// Provides a list of [`AnyFluent`]s the node publishes.
   fn publishes(&self) -> Vec<String>;

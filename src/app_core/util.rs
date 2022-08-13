@@ -18,16 +18,14 @@ pub struct CommandLineArgs {
 
 
 #[macro_export]
-/// Use this like you would use `vec![]`, giving it `&str` elements as
-/// arguments, and you'll get a `Vec<String>` with your elements.
+/// Alias for `vec![]` that takes `&str`s and creates a `Vec<String>`.
 macro_rules! stringvec {
   [$( $x:literal ),* $(,)?] => (vec![$( String::from($x) ),*]);
 }
 
 
 #[macro_export]
-/// Use this like you would use `vec![]`, giving it `T` elements as arguments,
-/// and you'll get a `Vec<Box<T>>` with your elements.
+/// Alias for `vec![]` that takes `T`s and creates a `Vec<Box<T>>`.
 macro_rules! boxvec {
   [$( $x:expr ),* $(,)?] => (vec![$( Box::new($x) ),*]);
 }

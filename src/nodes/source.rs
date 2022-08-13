@@ -17,7 +17,7 @@ use tracing::info;
 
 #[derive(Debug, Deserialize)]
 /// Reads data from the source (i.e. the PostgreSQL database) and publishes it
-/// to the [`Broker`](super::Broker) service.
+/// to the [`Broker`](crate::app_core::Broker) service.
 pub struct Source {
   publishes:    Vec<String>,
   run_params:   RunParams,
@@ -46,7 +46,8 @@ impl Node for Source {
 #[async_trait]
 impl StructuralNode for Source {
   /// Runs the [`Source`], retrieving data from the database and publishing
-  /// fluents to the [`Broker`](super::Broker). Consumes the original object.
+  /// fluents to the [`Broker`](crate::app_core::Broker). Consumes the original
+  /// object.
   ///
   /// Data retrieval is performed using the following SQL:
   ///
