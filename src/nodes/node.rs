@@ -4,7 +4,7 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::fluent::AnyFluent;
+use crate::{app_core::RequestTx, fluent::AnyFluent};
 
 use async_trait::async_trait;
 use eyre::Result;
@@ -43,5 +43,5 @@ pub trait StructuralNode: Node {
 /// Implemented by nodes  which evaluate [`AnyFluent`]s.
 #[async_trait]
 pub trait FluentNode: Node {
-  async fn run(self) -> Result<()>;
+  async fn run(self, request_tx: RequestTx) -> Result<()>;
 }

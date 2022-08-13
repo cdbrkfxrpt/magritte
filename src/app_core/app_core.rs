@@ -6,7 +6,8 @@
 
 use super::{broker::Broker, database::Database, util};
 use crate::{boxvec,
-            nodes::{Node, Sink, Source, StructuralNode}};
+            fluent::AnyFluent,
+            nodes::{FluentHandler, Node, Sink, Source, StructuralNode}};
 
 use clap::Parser;
 use eyre::Result;
@@ -54,8 +55,12 @@ impl AppCore {
     info!("executing USER run preparation SQL:\n\n{}", sql_raw);
     client.batch_execute(sql_raw).await?;
 
-    let nodes: Vec<Box<&mut dyn Node>> =
+    let mut nodes: Vec<Box<&mut dyn Node>> =
       boxvec![&mut self.source, &mut self.sink];
+
+    let p = include!("../../conf/fluent_handlers/location.rs");
+    let mut location = FluentHandler::new("location", p.0, p.1);
+    nodes.push(Box::new(&mut location));
 
     // for node in build_node_index(knowledge_request_tx.clone()) {
     //   nodes.push(node);

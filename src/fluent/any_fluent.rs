@@ -4,11 +4,11 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use super::{Fluent, Key, Timestamp};
+use super::{Fluent, FluentValue, Key, Timestamp};
 
 
 #[derive(Clone, Debug, PartialEq)]
-/// Enables sending `Fluent`s through channels.
+/// Enables sending [`Fluent`]s through channels.
 pub enum AnyFluent {
   Textual(Fluent<String>),
   Integer(Fluent<i64>),
@@ -18,14 +18,14 @@ pub enum AnyFluent {
 }
 
 impl AnyFluent {
-  /// Allows the creation of `AnyFluent` objects using any value of a type that
-  /// implements the `Selector` trait, which is a helper trait.
-  pub fn new<ValueType: Selector>(name: &str,
-                                  keys: &[Key],
-                                  timestamp: Timestamp,
-                                  value: ValueType)
-                                  -> Self {
-    ValueType::select(name, keys, timestamp, value)
+  /// Allows the creation of [`AnyFluent`] objects using any value of a type
+  /// that implements the [`FluentValue`] trait, which is a helper trait.
+  pub fn new<ValueType: FluentValue>(name: &str,
+                                     keys: &[Key],
+                                     ts: Timestamp,
+                                     value: ValueType)
+                                     -> Self {
+    value.to_fluent(name, keys, ts)
   }
 
   /// Helper function to get fluent name.
@@ -40,67 +40,34 @@ impl AnyFluent {
   }
 }
 
-impl Selector for String {
-  fn select(name: &str,
-            keys: &[Key],
-            timestamp: Timestamp,
-            value: Self)
-            -> AnyFluent {
-    AnyFluent::Textual(Fluent::new(name, keys, timestamp, value))
+impl FluentValue for String {
+  fn to_fluent(self, name: &str, keys: &[Key], ts: Timestamp) -> AnyFluent {
+    AnyFluent::Textual(Fluent::new(name, keys, ts, self))
   }
 }
 
-impl Selector for i64 {
-  fn select(name: &str,
-            keys: &[Key],
-            timestamp: Timestamp,
-            value: Self)
-            -> AnyFluent {
-    AnyFluent::Integer(Fluent::new(name, keys, timestamp, value))
+impl FluentValue for i64 {
+  fn to_fluent(self, name: &str, keys: &[Key], ts: Timestamp) -> AnyFluent {
+    AnyFluent::Integer(Fluent::new(name, keys, ts, self))
   }
 }
 
-impl Selector for f64 {
-  fn select(name: &str,
-            keys: &[Key],
-            timestamp: Timestamp,
-            value: Self)
-            -> AnyFluent {
-    AnyFluent::FloatPt(Fluent::new(name, keys, timestamp, value))
+impl FluentValue for f64 {
+  fn to_fluent(self, name: &str, keys: &[Key], ts: Timestamp) -> AnyFluent {
+    AnyFluent::FloatPt(Fluent::new(name, keys, ts, self))
   }
 }
 
-impl Selector for bool {
-  fn select(name: &str,
-            keys: &[Key],
-            timestamp: Timestamp,
-            value: Self)
-            -> AnyFluent {
-    AnyFluent::Boolean(Fluent::new(name, keys, timestamp, value))
+impl FluentValue for bool {
+  fn to_fluent(self, name: &str, keys: &[Key], ts: Timestamp) -> AnyFluent {
+    AnyFluent::Boolean(Fluent::new(name, keys, ts, self))
   }
 }
 
-impl Selector for (f64, f64) {
-  fn select(name: &str,
-            keys: &[Key],
-            timestamp: Timestamp,
-            value: Self)
-            -> AnyFluent {
-    AnyFluent::PlanePt(Fluent::new(name, keys, timestamp, value))
+impl FluentValue for (f64, f64) {
+  fn to_fluent(self, name: &str, keys: &[Key], ts: Timestamp) -> AnyFluent {
+    AnyFluent::PlanePt(Fluent::new(name, keys, ts, self))
   }
-}
-
-/// Helper trait to enable selection of the correct `AnyFluent` variant based
-/// on the type of the provided value.
-pub trait Selector {
-  /// Implement this function for your type, returning an `AnyFluent` variant
-  /// with a new `Fluent` inside. Implementations are provided for: `String`,
-  /// `i64`, `f64`, `bool`.
-  fn select(name: &str,
-            keys: &[Key],
-            timestamp: Timestamp,
-            value: Self)
-            -> AnyFluent;
 }
 
 // fin --------------------------------------------------------------------- //
