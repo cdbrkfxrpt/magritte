@@ -4,12 +4,12 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-mod broker;
+mod fluent_handler;
 mod node;
 mod sink;
 mod source;
 
-pub use broker::Broker;
+pub use fluent_handler::FluentHandler;
 pub use node::{FluentNode, Node, NodeRx, NodeTx, StructuralNode};
 pub use sink::Sink;
 pub use source::Source;

@@ -51,7 +51,7 @@ impl StructuralNode for Sink {
       None => bail!("Sink not initialized, aborting"),
     };
 
-    let sql_raw = include_str!("sink.sql");
+    let sql_raw = include_str!("../sql/sink.sql");
 
     while let Some((_, Ok(any_fluent))) = node_rx.next().await {
       let AnyFluent::Boolean(fluent) = any_fluent else {

@@ -5,8 +5,10 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 mod app_core;
-mod database_connector;
+mod broker;
+mod database;
 mod util;
 
 pub use app_core::AppCore;
-pub use database_connector::DatabaseConnector;
+pub use broker::Broker;
+pub use database::{Database, DatabaseRequest, RequestRx, RequestTx};

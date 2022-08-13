@@ -4,9 +4,9 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use super::{util, DatabaseConnector};
+use super::{broker::Broker, database::Database, util};
 use crate::{boxvec,
-            services::{Broker, Node, Sink, Source, StructuralNode}};
+            nodes::{Node, Sink, Source, StructuralNode}};
 
 use clap::Parser;
 use eyre::Result;
@@ -18,10 +18,10 @@ use tracing::info;
 #[derive(Debug, Deserialize)]
 /// Deserialized from config file. Initializes core elements of `magritte`.
 pub struct AppCore {
-  database_connector: DatabaseConnector,
-  broker:             Broker,
-  source:             Source,
-  sink:               Sink,
+  database: Database,
+  broker:   Broker,
+  source:   Source,
+  sink:     Sink,
 }
 
 impl AppCore {
@@ -38,15 +38,15 @@ impl AppCore {
   /// Prepares the database for a run using the following PostgreSQL:
   ///
   /// ```sql
-  #[doc = include_str!("prepare_run.sql")]
+  #[doc = include_str!("../sql/prepare_run.sql")]
   /// ```
   ///
   /// Furthermore, registers the [`Source`], [`Sink`] and fluent nodes at the
   /// broker and makes `magritte` ready to run.
   pub async fn prepare_run(&mut self) -> Result<()> {
-    let client = self.database_connector.connect().await?;
+    let client = self.database.connect().await?;
 
-    let sql_raw = include_str!("prepare_run.sql");
+    let sql_raw = include_str!("../sql/prepare_run.sql");
     info!("executing SYSTEM run preparation SQL:\n\n{}", sql_raw);
     client.batch_execute(sql_raw).await?;
 
@@ -56,11 +56,6 @@ impl AppCore {
 
     let nodes: Vec<Box<&mut dyn Node>> =
       boxvec![&mut self.source, &mut self.sink];
-
-    // TODO
-    // - set up KnowledgeRequestHandler
-    // - set up channel for KnowledgeRequests
-    // ... and that stuff underneath here
 
     // for node in build_node_index(knowledge_request_tx.clone()) {
     //   nodes.push(node);
@@ -73,31 +68,38 @@ impl AppCore {
   /// Runs the application. Consumes the `AppCore` object.
   pub async fn run(self) -> Result<()> {
     // decompose self into contained handles
-    let Self { database_connector,
+    let Self { mut database,
                broker,
                source,
                sink, } = self;
 
-    // start the broker task, creating a handle to it.
-    let broker_task = tokio::spawn(async move {
-      broker.run().await.expect("broker has stopped");
+    // start the database request handler task
+    let request_handler = database.request_handler();
+    let request_handler_task = tokio::spawn(async move {
+      request_handler.await.expect("request handler has stopped");
     });
 
-    // establish database connection and start the sink task, handing it the
-    // database client handle. create a handle to the task.
-    let database_client = database_connector.connect().await?;
+    // establish a database connection and create a database client, then start
+    // the sink task, creating a handle to the task.
+    let sink_dbc = database.connect().await?;
     let sink_task = tokio::spawn(async move {
-      sink.run(database_client).await.expect("sink has stopped");
+      sink.run(sink_dbc).await.expect("sink has stopped");
     });
 
-    // establish a database conection and start the source task, handing it the
-    // database client handle. await the source task.
-    let database_client = database_connector.connect().await?;
-    source.run(database_client).await?;
+    // establish a database connection and create a database client, then start
+    // the source task, creating a handle to the task.
+    let source_dbc = database.connect().await?;
+    let source_task = tokio::spawn(async move {
+      source.run(source_dbc).await.expect("source has stopped");
+    });
 
-    // if source task has ended, abort the sink and the broker tasks.
+    // start the broker task, creating a handle to the task.
+    broker.run().await?;
+
+    // if broker task has ended, abort all tasks.
+    source_task.abort();
     sink_task.abort();
-    broker_task.abort();
+    request_handler_task.abort();
 
     Ok(())
   }
@@ -110,7 +112,7 @@ impl AppCore {
 mod tests {
   use super::AppCore;
   use crate::{fluent::AnyFluent,
-              services::{Node, NodeRx, StructuralNode},
+              nodes::{Node, NodeRx, StructuralNode},
               stringvec};
 
   use pretty_assertions::assert_eq;
@@ -129,7 +131,7 @@ mod tests {
     let (tx, mut rx) = mpsc::unbounded_channel();
     source.initialize(tx, NodeRx::new());
 
-    let database_client = app_core.database_connector.connect().await.unwrap();
+    let database_client = app_core.database.connect().await.unwrap();
     let runner = tokio::spawn(async move {
       source.run(database_client).await.unwrap();
     });
@@ -152,7 +154,7 @@ mod tests {
     let app_core = AppCore::init().unwrap();
 
     let source = app_core.source;
-    let database_client = app_core.database_connector.connect().await.unwrap();
+    let database_client = app_core.database.connect().await.unwrap();
 
     assert_eq!(source.publishes(), stringvec!["lon", "lat", "speed"]);
     assert_eq!(source.subscribes_to(), Vec::<String>::new());

@@ -51,7 +51,7 @@ impl StructuralNode for Source {
   /// Data retrieval is performed using the following SQL:
   ///
   /// ```sql
-  #[doc = include_str!("source.sql")]
+  #[doc = include_str!("../sql/source.sql")]
   /// ```
   async fn run(self, database_client: Client) -> Result<()> {
     let node_tx = match self.node_tx {
@@ -60,7 +60,7 @@ impl StructuralNode for Source {
     };
 
     let statement_raw =
-      format!(include_str!("source.sql"),
+      format!(include_str!("../sql/source.sql"),
               key_name = self.query_params.key_name,
               timestamp_name = self.query_params.timestamp_name,
               fluent_names = self.publishes.join(", "),

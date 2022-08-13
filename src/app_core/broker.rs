@@ -4,8 +4,8 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use super::{Node, NodeTx};
-use crate::fluent::AnyFluent;
+use crate::{fluent::AnyFluent,
+            nodes::{Node, NodeTx}};
 
 use eyre::Result;
 use serde::Deserialize;
