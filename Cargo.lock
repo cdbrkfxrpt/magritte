@@ -752,6 +752,7 @@ dependencies = [
  "indoc",
  "pretty_assertions",
  "serde",
+ "serde_closure",
  "tokio",
  "tokio-postgres",
  "tokio-stream",
@@ -1160,6 +1161,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ef03e0a2b150c7a90d01faf6254c9c48a41e95fb2a8c2ac1c6f0d2b9aefc342"
 
 [[package]]
+name = "rustversion"
+version = "1.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97477e48b4cf8603ad5f7aaf897467cf42ab4218a38ef76fb14c2d6773a6d6a8"
+
+[[package]]
 name = "ryu"
 version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1178,6 +1185,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61ea8d54c77f8315140a05f4c7237403bf38b72704d031543aa1d16abbf517d1"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde_closure"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8dfcafdff09f246e0bca489d8dc841fa557debc1ced3ed7e619623cfe8795698"
+dependencies = [
+ "rustversion",
+ "serde",
+ "serde_closure_derive",
+]
+
+[[package]]
+name = "serde_closure_derive"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e51569ae5ecb8561699059dbbf1181e13f59c042438552e56c6ddf794f84eb7c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

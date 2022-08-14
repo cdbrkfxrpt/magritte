@@ -1,9 +1,13 @@
 (
   &["lon", "lat"],
-  |values: Vec<AnyFluent>| {
-    let AnyFluent::FloatPt(lon) = &values[0] else { panic!() };
-    let AnyFluent::FloatPt(lat) = &values[1] else { panic!() };
+  Fn!(
+    |values: Vec<AnyFluent>| {
+      let (lon, lat) = match values.as_slice() {
+        [AnyFluent::FloatPt(lon), AnyFluent::FloatPt(lat)] => (lon, lat),
+        _ => panic!(),
+      };
 
-    (lon.value().to_owned(), lat.value().to_owned())
-  }
+      (lon.value().to_owned(), lat.value().to_owned())
+    }
+  )
 )

@@ -8,8 +8,9 @@ use crate::{app_core::RequestTx, fluent::AnyFluent};
 
 use async_trait::async_trait;
 use eyre::Result;
+use std::fmt;
 use tokio::sync::mpsc;
-use tokio_postgres::Client as DatabaseClient;
+use tokio_postgres::Client;
 use tokio_stream::{wrappers::BroadcastStream, StreamMap};
 
 
@@ -24,7 +25,7 @@ pub type NodeRx = StreamMap<String, BroadcastStream<AnyFluent>>;
 
 /// Any type implementing this trait can register itself as a node at the
 /// [`Broker`](crate::app_core::Broker) service.
-pub trait Node: Send {
+pub trait Node: fmt::Debug + Send {
   /// Provides a list of [`AnyFluent`]s the node publishes.
   fn publishes(&self) -> Vec<String>;
   /// Provides a list of [`AnyFluent`]s the node subscribes to.
@@ -37,11 +38,11 @@ pub trait Node: Send {
 /// Implemented by nodes which require database access.
 #[async_trait]
 pub trait StructuralNode: Node {
-  async fn run(self, database_client: DatabaseClient) -> Result<()>;
+  async fn run(mut self: Box<Self>, database_client: Client) -> Result<()>;
 }
 
-/// Implemented by nodes  which evaluate [`AnyFluent`]s.
+/// Implemented by nodes which evaluate [`AnyFluent`]s.
 #[async_trait]
 pub trait FluentNode: Node {
-  async fn run(self, request_tx: RequestTx) -> Result<()>;
+  async fn run(mut self: Box<Self>, request_tx: RequestTx) -> Result<()>;
 }

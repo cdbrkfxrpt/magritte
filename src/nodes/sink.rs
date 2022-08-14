@@ -12,7 +12,7 @@ use eyre::{bail, Result};
 use serde::Deserialize;
 use tokio_postgres::Client;
 use tokio_stream::StreamExt;
-use tracing::info;
+// use tracing::info;
 
 
 #[derive(Debug, Deserialize)]
@@ -46,7 +46,7 @@ impl StructuralNode for Sink {
   /// Runs the [`Sink`], receiving fluents from the
   /// [`Broker`](crate::app_core::Broker) and writing them to the database.
   /// Consumes the original object.
-  async fn run(self, database_client: Client) -> Result<()> {
+  async fn run(mut self: Box<Self>, database_client: Client) -> Result<()> {
     let mut node_rx = match self.node_rx {
       Some(node_rx) => node_rx,
       None => bail!("Sink not initialized, aborting"),
@@ -56,7 +56,7 @@ impl StructuralNode for Sink {
 
     while let Some((_, Ok(any_fluent))) = node_rx.next().await {
       let AnyFluent::Boolean(fluent) = any_fluent else {
-        info!("Sink received: {:?}", any_fluent);
+        // info!("Sink received: {:?}", any_fluent);
         continue;
         // bail!("Sink received non-boolean fluent, aborting")
       };

@@ -5,13 +5,17 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use super::{broker::Broker, database::Database, util};
-use crate::{boxvec,
-            fluent::AnyFluent,
-            nodes::{FluentHandler, Node, Sink, Source, StructuralNode}};
+use crate::{fluent::AnyFluent,
+            nodes::{FluentHandler,
+                    FluentNode,
+                    Sink,
+                    Source,
+                    StructuralNode}};
 
 use clap::Parser;
 use eyre::Result;
 use serde::Deserialize;
+use serde_closure::Fn;
 use std::fs;
 use tracing::info;
 
@@ -21,8 +25,10 @@ use tracing::info;
 pub struct AppCore {
   database: Database,
   broker:   Broker,
-  source:   Source,
-  sink:     Sink,
+  source:   Box<Source>,
+  sink:     Box<Sink>,
+  #[serde(skip)]
+  nodes:    Vec<Box<dyn FluentNode>>,
 }
 
 impl AppCore {
@@ -55,18 +61,19 @@ impl AppCore {
     info!("executing USER run preparation SQL:\n\n{}", sql_raw);
     client.batch_execute(sql_raw).await?;
 
-    let mut nodes: Vec<Box<&mut dyn Node>> =
-      boxvec![&mut self.source, &mut self.sink];
+    self.broker.register(&mut self.source);
+    self.broker.register(&mut self.sink);
 
     let p = include!("../../conf/fluent_handlers/location.rs");
-    let mut location = FluentHandler::new("location", p.0, p.1);
-    nodes.push(Box::new(&mut location));
+    self.nodes
+        .push(Box::new(FluentHandler::new("location", p.0, p.1)));
+
+    self.broker.register_nodes(&mut self.nodes);
 
     // for node in build_node_index(knowledge_request_tx.clone()) {
     //   nodes.push(node);
     // }
 
-    self.broker.register_all(nodes);
     Ok(())
   }
 
@@ -76,16 +83,31 @@ impl AppCore {
     let Self { mut database,
                broker,
                source,
-               sink, } = self;
+               sink,
+               nodes, } = self;
 
     // start the database request handler task
-    let request_handler = database.request_handler();
+    info!("starting request handler...");
+    let (request_tx, request_handler) = database.request_handler();
     let request_handler_task = tokio::spawn(async move {
       request_handler.await.expect("request handler has stopped");
     });
 
+    // start nodes
+    info!("starting node tasks...");
+    let mut node_tasks = Vec::new();
+    for node in nodes {
+      let node_request_tx = request_tx.clone();
+      node_tasks.push(tokio::spawn(async move {
+                        node.run(node_request_tx)
+                            .await
+                            .expect("node has stopped");
+                      }));
+    }
+
     // establish a database connection and create a database client, then start
     // the sink task, creating a handle to the task.
+    info!("starting sink task...");
     let sink_dbc = database.connect().await?;
     let sink_task = tokio::spawn(async move {
       sink.run(sink_dbc).await.expect("sink has stopped");
@@ -93,15 +115,22 @@ impl AppCore {
 
     // establish a database connection and create a database client, then start
     // the source task, creating a handle to the task.
+    info!("starting source task...");
     let source_dbc = database.connect().await?;
     let source_task = tokio::spawn(async move {
       source.run(source_dbc).await.expect("source has stopped");
     });
 
     // start the broker task, creating a handle to the task.
+    info!("starting broker...");
     broker.run().await?;
 
     // if broker task has ended, abort all tasks.
+    info!("broker stopped, aborting all tasks...");
+    for node_task in node_tasks {
+      node_task.abort();
+    }
+
     source_task.abort();
     sink_task.abort();
     request_handler_task.abort();

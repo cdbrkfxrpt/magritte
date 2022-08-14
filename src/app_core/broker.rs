@@ -5,7 +5,7 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use crate::{fluent::AnyFluent,
-            nodes::{Node, NodeTx}};
+            nodes::{FluentNode, Node, NodeTx}};
 
 use eyre::Result;
 use serde::Deserialize;
@@ -29,7 +29,7 @@ pub struct Broker {
 impl Broker {
   /// Method to register a [`Node`] at the [`Broker`]. Creates channels to
   /// communicate fluents as required and initializes [`Node`]s accordingly.
-  pub fn register(&mut self, node: Box<&mut dyn Node>) {
+  pub fn register<T: Node + ?Sized>(&mut self, node: &mut Box<T>) {
     // add all fluents, whether published or subscribed to by the node, into
     // the known list of fluents, and create broadcast sender handles to them
     for fluent_name in
@@ -54,7 +54,7 @@ impl Broker {
 
   /// Helper method to register a `Vec` of [`Node`]s at once. Iterates `Vec`,
   /// using the [`register`](Self::register) method to register them.
-  pub fn register_all(&mut self, nodes: Vec<Box<&mut dyn Node>>) {
+  pub fn register_nodes(&mut self, nodes: &mut Vec<Box<dyn FluentNode>>) {
     for node in nodes {
       self.register(node);
     }

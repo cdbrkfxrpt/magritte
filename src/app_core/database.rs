@@ -11,7 +11,7 @@ use serde::Deserialize;
 use tokio::{sync::{mpsc, oneshot},
             task::JoinHandle};
 use tokio_postgres as tp;
-use tracing::{error, info};
+use tracing::error;
 
 
 /// Helper type for sender component of database request channel.
@@ -59,7 +59,6 @@ impl Database {
       }
     });
 
-    info!("database connection successful");
     Ok(client)
   }
 
@@ -69,26 +68,27 @@ impl Database {
   }
 
   /// Spawn a new request handler which can execute asynchronously.
-  pub fn request_handler(&mut self) -> JoinHandle<()> {
+  pub fn request_handler(&mut self) -> (RequestTx, JoinHandle<()>) {
     let new_db = Self { host:       self.host.clone(),
                         user:       self.user.clone(),
                         password:   self.password.clone(),
-                        dbname:     self.password.clone(),
+                        dbname:     self.dbname.clone(),
                         request_ch: mpsc::unbounded_channel(), };
 
     let database = std::mem::replace(self, new_db);
 
-    tokio::spawn(async move {
-      let _database_client =
-        database.connect()
-                .await
-                .expect("unable to establish database connection");
+    (database.request_ch.0.clone(),
+     tokio::spawn(async move {
+       let _database_client =
+         database.connect()
+                 .await
+                 .expect("unable to establish database connection");
 
-      // retrieve current receiver handle and update for future calls
-      let (_, _request_rx) = database.request_ch;
+       // retrieve current receiver handle and update for future calls
+       let (_, _request_rx) = database.request_ch;
 
-      // listen to request_rx and handle requests
-    })
+       // listen to request_rx and handle requests
+     }))
   }
 }
 

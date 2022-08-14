@@ -22,10 +22,10 @@ impl AnyFluent {
   /// that implements the [`FluentValue`] trait, which is a helper trait.
   pub fn new<ValueType: FluentValue>(name: &str,
                                      keys: &[Key],
-                                     ts: Timestamp,
+                                     timestamp: Timestamp,
                                      value: ValueType)
                                      -> Self {
-    value.to_fluent(name, keys, ts)
+    value.to_fluent(name, keys, timestamp)
   }
 
   /// Helper function to get fluent name.
@@ -36,6 +36,28 @@ impl AnyFluent {
       Self::FloatPt(fluent) => fluent.name(),
       Self::Boolean(fluent) => fluent.name(),
       Self::PlanePt(fluent) => fluent.name(),
+    }
+  }
+
+  /// Helper function to get fluent keys.
+  pub fn keys(&self) -> &[Key] {
+    match self {
+      Self::Textual(fluent) => fluent.keys(),
+      Self::Integer(fluent) => fluent.keys(),
+      Self::FloatPt(fluent) => fluent.keys(),
+      Self::Boolean(fluent) => fluent.keys(),
+      Self::PlanePt(fluent) => fluent.keys(),
+    }
+  }
+
+  /// Helper function to get fluent timestamp.
+  pub fn timestamp(&self) -> Timestamp {
+    match self {
+      Self::Textual(fluent) => fluent.timestamp(),
+      Self::Integer(fluent) => fluent.timestamp(),
+      Self::FloatPt(fluent) => fluent.timestamp(),
+      Self::Boolean(fluent) => fluent.timestamp(),
+      Self::PlanePt(fluent) => fluent.timestamp(),
     }
   }
 }

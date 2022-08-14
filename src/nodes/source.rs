@@ -54,7 +54,7 @@ impl StructuralNode for Source {
   /// ```sql
   #[doc = include_str!("../sql/source.sql")]
   /// ```
-  async fn run(self, database_client: Client) -> Result<()> {
+  async fn run(mut self: Box<Self>, database_client: Client) -> Result<()> {
     let node_tx = match self.node_tx {
       Some(node_tx) => node_tx,
       None => bail!("Source not initialized, aborting"),
