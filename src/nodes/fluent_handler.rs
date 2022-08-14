@@ -10,18 +10,21 @@ use crate::{app_core::{util::unordered_congruent, RequestTx},
 
 use async_trait::async_trait;
 use boolinator::Boolinator;
+use derivative::Derivative;
 use eyre::{bail, Result};
-use std::{collections::BTreeMap, fmt};
+use std::collections::BTreeMap;
 use tokio_stream::StreamExt;
 
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct FluentHandler<T, F>
   where T: FluentValue,
-        F: Fn(Vec<AnyFluent>) -> T + Send + fmt::Debug {
+        F: Fn(Vec<AnyFluent>) -> T + Send {
   name:         String,
   dependencies: Vec<String>,
-  eval_fn:      F,
+  #[derivative(Debug = "ignore")]
+  eval_fn:      Box<F>,
   deps_buffer:  BTreeMap<Timestamp, Vec<AnyFluent>>,
   // history:                  Vec<AnyFluent>,
   // window:                   Option<usize>,
@@ -30,9 +33,9 @@ pub struct FluentHandler<T, F>
 
 impl<T, F> FluentHandler<T, F>
   where T: FluentValue,
-        F: Fn(Vec<AnyFluent>) -> T + Send + fmt::Debug
+        F: Fn(Vec<AnyFluent>) -> T + Send
 {
-  pub fn new(name: &str, dependencies: &[&str], eval_fn: F) -> Self {
+  pub fn new(name: &str, dependencies: &[&str], eval_fn: Box<F>) -> Self {
     let name = name.to_owned();
     let dependencies = dependencies.iter()
                                    .map(|e| e.to_string())
@@ -50,7 +53,7 @@ impl<T, F> FluentHandler<T, F>
 
 impl<T, F> Node for FluentHandler<T, F>
   where T: FluentValue,
-        F: Fn(Vec<AnyFluent>) -> T + Send + fmt::Debug
+        F: Fn(Vec<AnyFluent>) -> T + Send
 {
   fn publishes(&self) -> Vec<String> {
     vec![self.name.clone()]
@@ -68,7 +71,7 @@ impl<T, F> Node for FluentHandler<T, F>
 #[async_trait]
 impl<T, F> FluentNode for FluentHandler<T, F>
   where T: FluentValue,
-        F: Fn(Vec<AnyFluent>) -> T + Send + fmt::Debug
+        F: Fn(Vec<AnyFluent>) -> T + Send
 {
   async fn run(mut self: Box<Self>, _request_tx: RequestTx) -> Result<()> {
     let (node_tx, mut node_rx) = match self.node_ch {

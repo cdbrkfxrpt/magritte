@@ -13,14 +13,15 @@ use crate::{fluent::AnyFluent,
                     StructuralNode}};
 
 use clap::Parser;
+use derivative::Derivative;
 use eyre::Result;
 use serde::Deserialize;
-use serde_closure::Fn;
 use std::fs;
 use tracing::info;
 
 
-#[derive(Debug, Deserialize)]
+#[derive(Derivative, Deserialize)]
+#[derivative(Debug)]
 /// Deserialized from config file. Initializes core elements of `magritte`.
 pub struct AppCore {
   database: Database,
@@ -28,6 +29,7 @@ pub struct AppCore {
   source:   Box<Source>,
   sink:     Box<Sink>,
   #[serde(skip)]
+  #[derivative(Debug = "ignore")]
   nodes:    Vec<Box<dyn FluentNode>>,
 }
 
@@ -64,10 +66,10 @@ impl AppCore {
     self.broker.register(&mut self.source);
     self.broker.register(&mut self.sink);
 
-    for def in include!("../../conf/fluent_handlers.rs") {
-      self.nodes
-          .push(Box::new(FluentHandler::new(def.0, def.1, def.2)));
-    }
+    // for def in include!("../../conf/fluent_handlers.rs") {
+    //   self.nodes
+    //       .push(Box::new(FluentHandler::new(def.0, &def.1, def.2)));
+    // }
 
     self.broker.register_nodes(&mut self.nodes);
     Ok(())
