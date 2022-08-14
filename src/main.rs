@@ -68,7 +68,7 @@ async fn main() -> Result<()> {
 
   info!("reading command line arguments and config file to init app...");
   let mut app_core = AppCore::init()?;
-  info!(?app_core);
+  info!("{:#?}", app_core);
 
   info!("preparing database for run...");
   app_core.prepare_run().await?;
@@ -83,7 +83,7 @@ async fn main() -> Result<()> {
         }
       }
       Err(e) => {
-        info!("app core init failed: {}", e);
+        info!("app core crashed: {}", e);
         if let Err(e) = main_tx.send(ShutdownCause::BrokerInitFailed) {
           error!("unable to inform magritte main task: {}", e);
         }

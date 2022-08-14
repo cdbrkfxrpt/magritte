@@ -12,7 +12,6 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use tokio::sync::{broadcast, mpsc};
 use tokio_stream::StreamMap;
-// use tracing::info;
 
 
 #[derive(Debug, Deserialize)]
@@ -49,7 +48,8 @@ impl Broker {
     }
 
     // initialize Node with NodeTx and NodeRx
-    node.initialize(self.node_ch.0.clone(), stream_map)
+    let node_tx = self.node_ch.0.clone();
+    node.initialize(node_tx, stream_map)
   }
 
   /// Helper method to register a `Vec` of [`Node`]s at once. Iterates `Vec`,
@@ -65,7 +65,17 @@ impl Broker {
   pub async fn run(self) -> Result<()> {
     let mut input_rx = self.node_ch.1;
     while let Some(any_fluent) = input_rx.recv().await {
-      self.fluents[any_fluent.name()].send(any_fluent)?;
+      let fluent_name = any_fluent.name().to_string();
+      // sending on a broadcast channel may return an error Result, which just
+      // means that there are no receivers for this channel. however, it still
+      // takes resources and since CURRENTLY all our receivers are known at
+      // compile time, we can just skip that send entirely.
+      if self.fluents[&fluent_name].receiver_count() == 0 {
+        continue;
+      }
+
+      // now we can safely ? on the send; otherwise we could use a match here.
+      self.fluents[&fluent_name].send(any_fluent)?;
     }
     Ok(())
   }

@@ -12,7 +12,7 @@ use eyre::{bail, Result};
 use serde::Deserialize;
 use tokio_postgres::Client;
 use tokio_stream::StreamExt;
-// use tracing::info;
+use tracing::info;
 
 
 #[derive(Debug, Deserialize)]
@@ -56,7 +56,7 @@ impl StructuralNode for Sink {
 
     while let Some((_, Ok(any_fluent))) = node_rx.next().await {
       let AnyFluent::Boolean(fluent) = any_fluent else {
-        // info!("Sink received: {:?}", any_fluent);
+        info!("Sink received: {:?}", any_fluent);
         continue;
         // bail!("Sink received non-boolean fluent, aborting")
       };

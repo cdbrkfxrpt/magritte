@@ -17,8 +17,8 @@ broadcast_capacity = 32
 publishes = ["lon", "lat", "speed"]
 
   [source.run_params]
-  millis_per_cycle = 100
-  datapoints_to_run = 100
+  millis_per_cycle = 10
+  datapoints_to_run = 10000
 
   [source.query_params]
   key_name = "mmsi"
@@ -28,4 +28,4 @@ publishes = ["lon", "lat", "speed"]
   rows_to_fetch = 32
 
 [sink]
-subscribes_to = ["highSpeedNearCoast", "rendezVous", "lon", "lat", "speed"]
+subscribes_to = ["highSpeedNearCoast", "rendezVous", "location"]

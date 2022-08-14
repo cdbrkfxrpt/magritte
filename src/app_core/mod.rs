@@ -7,7 +7,7 @@
 mod app_core;
 mod broker;
 mod database;
-mod util;
+pub mod util;
 
 pub use app_core::AppCore;
 pub use broker::Broker;

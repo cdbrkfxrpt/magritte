@@ -4,15 +4,15 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::{app_core::RequestTx,
+use crate::{app_core::{util::unordered_congruent, RequestTx},
             fluent::{AnyFluent, FluentValue, Timestamp},
             nodes::{FluentNode, Node, NodeRx, NodeTx}};
 
 use async_trait::async_trait;
+use boolinator::Boolinator;
 use eyre::{bail, Result};
 use std::{collections::BTreeMap, fmt};
 use tokio_stream::StreamExt;
-use tracing::info;
 
 
 #[derive(Debug)]
@@ -71,7 +71,7 @@ impl<T, F> FluentNode for FluentHandler<T, F>
         F: Fn(Vec<AnyFluent>) -> T + Send + fmt::Debug
 {
   async fn run(mut self: Box<Self>, _request_tx: RequestTx) -> Result<()> {
-    let (_node_tx, mut node_rx) = match self.node_ch {
+    let (node_tx, mut node_rx) = match self.node_ch {
       Some((node_tx, node_rx)) => (node_tx, node_rx),
       None => bail!("FluentHandler '{}' not initialized, aborting", self.name),
     };
@@ -89,26 +89,43 @@ impl<T, F> FluentNode for FluentHandler<T, F>
         }
       }
 
-      let mut key_matches =
+      // deps: dependecies filtered by key as Vec
+      let mut deps =
         self.deps_buffer[&timestamp].iter()
-                                    .filter(|fluent| fluent.keys() == keys)
-                                    .collect::<Vec<_>>();
+                                    .filter_map(|f| {
+                                      (f.keys() == keys).as_some(f.clone())
+                                    })
+                                    .collect::<Vec<AnyFluent>>();
 
-      if key_matches.len() != self.dependencies.len() {
+      let dep_names = deps.iter()
+                          .map(|k| k.name().to_string())
+                          .collect::<Vec<_>>();
+
+      if self.dependencies.len() != dep_names.len()
+         || !unordered_congruent(&self.dependencies, &dep_names)
+      {
         continue;
       }
 
-      key_matches.sort_by(|lhs, rhs| {
-                   self.dependencies
-                       .iter()
-                       .position(|e| e == lhs.name())
-                       .unwrap()
-                       .cmp(&self.dependencies
-                                 .iter()
-                                 .position(|e| e == rhs.name())
-                                 .unwrap())
-                 });
-      info!("{:?}", key_matches);
+      // now that we've checked that deps contains all elements required by
+      // self.dependencies, we can safely unwrap the position calls here:
+      deps.sort_by(|lhs, rhs| {
+            let lhs_pos = self.dependencies
+                              .iter()
+                              .position(|name| name == lhs.name())
+                              .unwrap();
+            let rhs_pos = self.dependencies
+                              .iter()
+                              .position(|name| name == rhs.name())
+                              .unwrap();
+            lhs_pos.cmp(&rhs_pos)
+          });
+
+      // we've got all the dependencies now - feed them into the eval_fn
+      let fluent =
+        AnyFluent::new(&self.name, &keys, timestamp, (self.eval_fn)(deps));
+
+      node_tx.send(fluent)?;
     }
 
     Ok(())
