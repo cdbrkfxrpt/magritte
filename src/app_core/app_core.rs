@@ -64,16 +64,12 @@ impl AppCore {
     self.broker.register(&mut self.source);
     self.broker.register(&mut self.sink);
 
-    let p = include!("../../conf/fluent_handlers/location.rs");
-    self.nodes
-        .push(Box::new(FluentHandler::new("location", p.0, p.1)));
+    for def in include!("../../conf/fluent_handlers.rs") {
+      self.nodes
+          .push(Box::new(FluentHandler::new(def.0, def.1, def.2)));
+    }
 
     self.broker.register_nodes(&mut self.nodes);
-
-    // for node in build_node_index(knowledge_request_tx.clone()) {
-    //   nodes.push(node);
-    // }
-
     Ok(())
   }
 
