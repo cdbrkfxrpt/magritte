@@ -9,5 +9,5 @@ create table magritte.event_stream (
   keys        integer[],
   timestamp   bigint,
   value       bool,
-  lastChanged bigint
+  last_change bigint
 );

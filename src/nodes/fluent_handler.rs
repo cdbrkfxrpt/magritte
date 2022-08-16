@@ -5,7 +5,7 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use crate::{app_core::{util::unordered_congruent, RequestTx},
-            fluent::{AnyFluent, FluentValue, Timestamp},
+            fluent::{AnyFluent, EvalFn, Timestamp},
             nodes::{FluentNode, Node, NodeRx, NodeTx}};
 
 use async_trait::async_trait;
@@ -18,24 +18,19 @@ use tokio_stream::StreamExt;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct FluentHandler<T, F>
-  where T: FluentValue,
-        F: Fn(Vec<AnyFluent>) -> T + Send {
+pub struct FluentHandler {
   name:         String,
   dependencies: Vec<String>,
   #[derivative(Debug = "ignore")]
-  eval_fn:      Box<F>,
+  eval_fn:      EvalFn,
   deps_buffer:  BTreeMap<Timestamp, Vec<AnyFluent>>,
   // history:                  Vec<AnyFluent>,
   // window:                   Option<usize>,
   node_ch:      Option<(NodeTx, NodeRx)>,
 }
 
-impl<T, F> FluentHandler<T, F>
-  where T: FluentValue,
-        F: Fn(Vec<AnyFluent>) -> T + Send
-{
-  pub fn new(name: &str, dependencies: &[&str], eval_fn: Box<F>) -> Self {
+impl FluentHandler {
+  pub fn new(name: &str, dependencies: &[&str], eval_fn: EvalFn) -> Self {
     let name = name.to_owned();
     let dependencies = dependencies.iter()
                                    .map(|e| e.to_string())
@@ -51,10 +46,7 @@ impl<T, F> FluentHandler<T, F>
   }
 }
 
-impl<T, F> Node for FluentHandler<T, F>
-  where T: FluentValue,
-        F: Fn(Vec<AnyFluent>) -> T + Send
-{
+impl Node for FluentHandler {
   fn publishes(&self) -> Vec<String> {
     vec![self.name.clone()]
   }
@@ -69,10 +61,7 @@ impl<T, F> Node for FluentHandler<T, F>
 }
 
 #[async_trait]
-impl<T, F> FluentNode for FluentHandler<T, F>
-  where T: FluentValue,
-        F: Fn(Vec<AnyFluent>) -> T + Send
-{
+impl FluentNode for FluentHandler {
   async fn run(mut self: Box<Self>, _request_tx: RequestTx) -> Result<()> {
     let (node_tx, mut node_rx) = match self.node_ch {
       Some((node_tx, node_rx)) => (node_tx, node_rx),
@@ -125,8 +114,10 @@ impl<T, F> FluentNode for FluentHandler<T, F>
           });
 
       // we've got all the dependencies now - feed them into the eval_fn
-      let fluent =
-        AnyFluent::new(&self.name, &keys, timestamp, (self.eval_fn)(deps));
+      let fluent = AnyFluent::new(&self.name,
+                                  &keys,
+                                  timestamp,
+                                  self.eval_fn.evaluate_with(deps));
 
       node_tx.send(fluent)?;
     }

@@ -20,11 +20,11 @@ pub enum AnyFluent {
 impl AnyFluent {
   /// Allows the creation of [`AnyFluent`] objects using any value of a type
   /// that implements the [`FluentValue`] trait, which is a helper trait.
-  pub fn new<ValueType: FluentValue>(name: &str,
-                                     keys: &[Key],
-                                     timestamp: Timestamp,
-                                     value: ValueType)
-                                     -> Self {
+  pub fn new(name: &str,
+             keys: &[Key],
+             timestamp: Timestamp,
+             value: Box<dyn FluentValue>)
+             -> Self {
     value.to_fluent(name, keys, timestamp)
   }
 
@@ -63,31 +63,31 @@ impl AnyFluent {
 }
 
 impl FluentValue for String {
-  fn to_fluent(self, name: &str, keys: &[Key], ts: Timestamp) -> AnyFluent {
+  fn to_fluent(&self, name: &str, keys: &[Key], ts: Timestamp) -> AnyFluent {
     AnyFluent::Textual(Fluent::new(name, keys, ts, self))
   }
 }
 
 impl FluentValue for i64 {
-  fn to_fluent(self, name: &str, keys: &[Key], ts: Timestamp) -> AnyFluent {
+  fn to_fluent(&self, name: &str, keys: &[Key], ts: Timestamp) -> AnyFluent {
     AnyFluent::Integer(Fluent::new(name, keys, ts, self))
   }
 }
 
 impl FluentValue for f64 {
-  fn to_fluent(self, name: &str, keys: &[Key], ts: Timestamp) -> AnyFluent {
+  fn to_fluent(&self, name: &str, keys: &[Key], ts: Timestamp) -> AnyFluent {
     AnyFluent::FloatPt(Fluent::new(name, keys, ts, self))
   }
 }
 
 impl FluentValue for bool {
-  fn to_fluent(self, name: &str, keys: &[Key], ts: Timestamp) -> AnyFluent {
+  fn to_fluent(&self, name: &str, keys: &[Key], ts: Timestamp) -> AnyFluent {
     AnyFluent::Boolean(Fluent::new(name, keys, ts, self))
   }
 }
 
 impl FluentValue for (f64, f64) {
-  fn to_fluent(self, name: &str, keys: &[Key], ts: Timestamp) -> AnyFluent {
+  fn to_fluent(&self, name: &str, keys: &[Key], ts: Timestamp) -> AnyFluent {
     AnyFluent::PlanePt(Fluent::new(name, keys, ts, self))
   }
 }

@@ -18,7 +18,7 @@ publishes = ["lon", "lat", "speed"]
 
   [source.run_params]
   millis_per_cycle = 10
-  datapoints_to_run = 10000
+  datapoints_to_run = 100000
 
   [source.query_params]
   key_name = "mmsi"
@@ -27,5 +27,8 @@ publishes = ["lon", "lat", "speed"]
   order_by = "id"
   rows_to_fetch = 32
 
-[sink]
-subscribes_to = ["highSpeedNearCoast", "rendezVous", "location"]
+[[sinks]]
+subscribes_to = ["moving"]
+
+[[sinks]]
+subscribes_to = ["highSpeed"]

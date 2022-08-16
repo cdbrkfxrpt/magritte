@@ -8,10 +8,12 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 mod any_fluent;
+mod eval_fn;
 mod fluent;
 mod fluent_value;
 
 pub use any_fluent::AnyFluent;
+pub use eval_fn::EvalFn;
 pub use fluent::Fluent;
 pub use fluent_value::FluentValue;
 

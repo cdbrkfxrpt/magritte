@@ -5,7 +5,7 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use super::{broker::Broker, database::Database, util};
-use crate::{fluent::AnyFluent,
+use crate::{fluent::{AnyFluent, EvalFn},
             nodes::{FluentHandler,
                     FluentNode,
                     Sink,
@@ -13,23 +13,20 @@ use crate::{fluent::AnyFluent,
                     StructuralNode}};
 
 use clap::Parser;
-use derivative::Derivative;
 use eyre::Result;
 use serde::Deserialize;
 use std::fs;
 use tracing::info;
 
 
-#[derive(Derivative, Deserialize)]
-#[derivative(Debug)]
+#[derive(Debug, Deserialize)]
 /// Deserialized from config file. Initializes core elements of `magritte`.
 pub struct AppCore {
   database: Database,
   broker:   Broker,
   source:   Box<Source>,
-  sink:     Box<Sink>,
+  sinks:    Vec<Box<Sink>>,
   #[serde(skip)]
-  #[derivative(Debug = "ignore")]
   nodes:    Vec<Box<dyn FluentNode>>,
 }
 
@@ -64,12 +61,14 @@ impl AppCore {
     client.batch_execute(sql_raw).await?;
 
     self.broker.register(&mut self.source);
-    self.broker.register(&mut self.sink);
+    for sink in self.sinks.iter_mut() {
+      self.broker.register(sink);
+    }
 
-    // for def in include!("../../conf/fluent_handlers.rs") {
-    //   self.nodes
-    //       .push(Box::new(FluentHandler::new(def.0, &def.1, def.2)));
-    // }
+    for def in include!("../../conf/fluent_handlers.rs") {
+      self.nodes
+          .push(Box::new(FluentHandler::new(def.0, &def.1, def.2)));
+    }
 
     self.broker.register_nodes(&mut self.nodes);
     Ok(())
@@ -81,7 +80,7 @@ impl AppCore {
     let Self { mut database,
                broker,
                source,
-               sink,
+               sinks,
                nodes, } = self;
 
     // start the database request handler task
@@ -105,11 +104,15 @@ impl AppCore {
 
     // establish a database connection and create a database client, then start
     // the sink task, creating a handle to the task.
-    info!("starting sink task...");
-    let sink_dbc = database.connect().await?;
-    let sink_task = tokio::spawn(async move {
-      sink.run(sink_dbc).await.expect("sink has stopped");
-    });
+    info!("starting sink tasks...");
+    let mut sink_tasks = Vec::new();
+    for sink in sinks {
+      let sink_dbc = database.connect().await?;
+      let sink_task = tokio::spawn(async move {
+        sink.run(sink_dbc).await.expect("sink has stopped");
+      });
+      sink_tasks.push(sink_task);
+    }
 
     // establish a database connection and create a database client, then start
     // the source task, creating a handle to the task.
@@ -129,8 +132,11 @@ impl AppCore {
       node_task.abort();
     }
 
+    for sink_task in sink_tasks {
+      sink_task.abort();
+    }
+
     source_task.abort();
-    sink_task.abort();
     request_handler_task.abort();
 
     Ok(())

@@ -2,25 +2,43 @@
   (
     "location",
     vec!["lon", "lat"],
-    |values: Vec<AnyFluent>| {
-      let (lon, lat) = match values.as_slice() {
-        [AnyFluent::FloatPt(lon), AnyFluent::FloatPt(lat)] => (lon, lat),
-        _ => panic!(),
-      };
+    EvalFn::specify(Box::new(
+      |fluents: Vec<AnyFluent>| {
+        let (lon, lat) = match fluents.as_slice() {
+          [AnyFluent::FloatPt(lon), AnyFluent::FloatPt(lat)] => (lon, lat),
+          _ => panic!(),
+        };
 
-      (lon.value().to_owned(), lat.value().to_owned())
-    }
+        Box::new((lon.value().to_owned(), lat.value().to_owned()))
+      }
+    ))
+  ),
+  (
+    "moving",
+    vec!["speed"],
+    EvalFn::specify(Box::new(
+      |fluents: Vec<AnyFluent>| {
+        let speed = match fluents.as_slice() {
+          [AnyFluent::FloatPt(speed)] => speed,
+          _ => panic!(),
+        };
+
+        Box::new(speed.value() >= &0.2)
+      }
+    ))
   ),
   (
     "highSpeed",
     vec!["speed"],
-    |values: Vec<AnyFluent>| {
-      let speed = match values.as_slice() {
-        [AnyFluent::FloatPt(speed)] => speed,
-        _ => panic!(),
-      };
+    EvalFn::specify(Box::new(
+      |fluents: Vec<AnyFluent>| {
+        let speed = match fluents.as_slice() {
+          [AnyFluent::FloatPt(speed)] => speed,
+          _ => panic!(),
+        };
 
-      speed.value() >= &5.0
-    }
-  )
+        Box::new(speed.value() >= &5.0)
+      }
+    ))
+  ),
 ]

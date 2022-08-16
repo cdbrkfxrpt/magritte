@@ -99,13 +99,13 @@ impl StructuralNode for Source {
           for fluent_name in self.publishes.iter() {
             let value: f64 = row.get(fluent_name.as_str());
             let fluent =
-              AnyFluent::new(&fluent_name, &[key], timestamp, value);
+              AnyFluent::new(&fluent_name, &[key], timestamp, Box::new(value));
 
             node_tx.send(fluent)?;
           }
           offset += 1;
 
-          // info!("ran {} datapoints", offset);
+          info!("ran {} datapoints", offset);
           if self.run_params.datapoints_to_run > 0
              && offset == self.run_params.datapoints_to_run
           {

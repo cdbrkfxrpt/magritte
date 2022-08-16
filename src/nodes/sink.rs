@@ -55,8 +55,8 @@ impl StructuralNode for Sink {
     let sql_raw = include_str!("../sql/sink.sql");
 
     while let Some((_, Ok(any_fluent))) = node_rx.next().await {
+      info!("Sink received: {:?}", any_fluent);
       let AnyFluent::Boolean(fluent) = any_fluent else {
-        info!("Sink received: {:?}", any_fluent);
         continue;
         // bail!("Sink received non-boolean fluent, aborting")
       };

@@ -12,6 +12,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use tokio::sync::{broadcast, mpsc};
 use tokio_stream::StreamMap;
+use tracing::info;
 
 
 #[derive(Debug, Deserialize)]
@@ -65,6 +66,7 @@ impl Broker {
   pub async fn run(self) -> Result<()> {
     let mut input_rx = self.node_ch.1;
     while let Some(any_fluent) = input_rx.recv().await {
+      info!("received fluent: {:?}", any_fluent);
       let fluent_name = any_fluent.name().to_string();
       // sending on a broadcast channel may return an error Result, which just
       // means that there are no receivers for this channel. however, it still

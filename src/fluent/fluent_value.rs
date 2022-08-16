@@ -21,5 +21,5 @@ pub trait FluentValue: fmt::Debug {
   /// - `f64`
   /// - `bool`
   /// - `(f64, f64)`
-  fn to_fluent(self, name: &str, keys: &[Key], ts: Timestamp) -> AnyFluent;
+  fn to_fluent(&self, name: &str, keys: &[Key], ts: Timestamp) -> AnyFluent;
 }

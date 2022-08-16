@@ -14,7 +14,8 @@ use std::{cmp::Ordering, fmt};
 #[derive(Clone, Debug, CopyGetters, Getters, MutGetters)]
 /// Core application data type. Any property that is subject to change is
 /// represented by a fluent.
-pub struct Fluent<ValueType: fmt::Debug + PartialEq> {
+pub struct Fluent<ValueType>
+  where ValueType: fmt::Debug + Clone + PartialEq {
   #[getset(get = "pub", get_mut = "pub")]
   name:        String,
   #[getset(get = "pub", get_mut = "pub")]
@@ -27,19 +28,21 @@ pub struct Fluent<ValueType: fmt::Debug + PartialEq> {
   last_change: Timestamp,
 }
 
-impl<ValueType: fmt::Debug + PartialEq> Fluent<ValueType> {
+impl<ValueType> Fluent<ValueType>
+  where ValueType: fmt::Debug + Clone + PartialEq
+{
   /// A fluent needs to have a name and associated keys, i.e. sub-streams, to
   /// be uniquely identified. An initial timestamp and value must be provided,
   /// where the value can be of any type that implements `PartialEq + Eq`.
   pub fn new(name: &str,
              keys: &[Key],
              timestamp: Timestamp,
-             value: ValueType)
+             value: &ValueType)
              -> Self {
     Self { name:        name.to_owned(),
            keys:        keys.to_owned(),
            timestamp:   timestamp,
-           value:       value,
+           value:       value.clone(),
            last_change: timestamp, }
   }
 
@@ -63,7 +66,9 @@ impl<ValueType: fmt::Debug + PartialEq> Fluent<ValueType> {
   }
 }
 
-impl<ValueType: fmt::Debug + PartialEq> PartialEq for Fluent<ValueType> {
+impl<ValueType> PartialEq for Fluent<ValueType>
+  where ValueType: fmt::Debug + Clone + PartialEq
+{
   fn eq(&self, other: &Self) -> bool {
     self.name == other.name
     && self.keys == other.keys
@@ -71,15 +76,22 @@ impl<ValueType: fmt::Debug + PartialEq> PartialEq for Fluent<ValueType> {
   }
 }
 
-impl<ValueType: fmt::Debug + PartialEq> Eq for Fluent<ValueType> {}
+impl<ValueType> Eq for Fluent<ValueType>
+  where ValueType: fmt::Debug + Clone + PartialEq
+{
+}
 
-impl<ValueType: fmt::Debug + PartialEq> PartialOrd for Fluent<ValueType> {
+impl<ValueType> PartialOrd for Fluent<ValueType>
+  where ValueType: fmt::Debug + Clone + PartialEq
+{
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
     Some(self.cmp(&other))
   }
 }
 
-impl<ValueType: fmt::Debug + PartialEq> Ord for Fluent<ValueType> {
+impl<ValueType> Ord for Fluent<ValueType>
+  where ValueType: fmt::Debug + Clone + PartialEq
+{
   fn cmp(&self, other: &Self) -> Ordering {
     self.timestamp.cmp(&other.timestamp)
   }
