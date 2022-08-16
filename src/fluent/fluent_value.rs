@@ -13,7 +13,7 @@ use std::fmt;
 /// on the type of the provided value.
 pub trait FluentValue: fmt::Debug {
   /// Implement this function for your type, returning an [`AnyFluent`] variant
-  /// with a new [`Fluent`] inside.
+  /// with a new [`Fluent`](super::Fluent) inside.
   ///
   /// Implementations are provided for:
   /// - `String`

@@ -18,6 +18,10 @@ use tokio_stream::StreamExt;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
+/// A [`Node`] which handles the progression of fluents by subscribing to
+/// dependency fluents and processing incoming values via a evaluation function
+/// to produce an output fluent, publishing this [`AnyFluent`] to the
+/// [`Broker`](crate::app_core::Broker).
 pub struct FluentHandler {
   name:         String,
   dependencies: Vec<String>,
@@ -30,6 +34,9 @@ pub struct FluentHandler {
 }
 
 impl FluentHandler {
+  /// Instantiate a [`FluentHandler`] with the name and dependencies of the
+  /// [`AnyFluent`] it handles, as well as an evaluation function of type
+  /// [`EvalFn`] (which is a wrapper struct for a closure).
   pub fn new(name: &str, dependencies: &[&str], eval_fn: EvalFn) -> Self {
     let name = name.to_owned();
     let dependencies = dependencies.iter()
@@ -62,6 +69,11 @@ impl Node for FluentHandler {
 
 #[async_trait]
 impl FluentNode for FluentHandler {
+  /// This function contains a lot of the logic which defines the way fluents
+  /// evolve over time, i.e. it contains the way dependencies are buffered,
+  /// stored and detected to be complete for function evaluation, how
+  /// background knowledge is obtained and provided to the evaluation function,
+  /// how and when fluents are updated and published, all of that.
   async fn run(mut self: Box<Self>, _request_tx: RequestTx) -> Result<()> {
     let (node_tx, mut node_rx) = match self.node_ch {
       Some((node_tx, node_rx)) => (node_tx, node_rx),
