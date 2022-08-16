@@ -38,6 +38,8 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 
 #[derive(Debug)]
+/// Enum enabling graceful shut down of `magritte` following an error or user
+/// cancellation.
 enum ShutdownCause {
   BrokerShutdown,
   BrokerInitFailed,

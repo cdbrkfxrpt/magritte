@@ -108,13 +108,14 @@ mod tests {
     let timestamp = 1337;
     let value = String::from("running");
 
-    let any_fluent = AnyFluent::new(name, keys, timestamp, value.clone());
+    let any_fluent =
+      AnyFluent::new(name, keys, timestamp, Box::new(value.clone()));
 
     assert!(matches!(any_fluent, AnyFluent::Textual(..)));
     assert_eq!(any_fluent.name(), name);
 
     let AnyFluent::Textual(extracted) = any_fluent.clone() else { panic!() };
-    let fluent = Fluent::new(name, keys, timestamp, value.clone());
+    let fluent = Fluent::new(name, keys, timestamp, &value);
 
     assert_eq!(extracted, fluent);
 
@@ -130,13 +131,13 @@ mod tests {
     let timestamp = 1337;
     let value = 3;
 
-    let any_fluent = AnyFluent::new(name, keys, timestamp, value);
+    let any_fluent = AnyFluent::new(name, keys, timestamp, Box::new(value));
 
     assert!(matches!(any_fluent, AnyFluent::Integer(..)));
     assert_eq!(any_fluent.name(), name);
 
     let AnyFluent::Integer(extracted) = any_fluent.clone() else { panic!() };
-    let fluent = Fluent::new(name, keys, timestamp, value);
+    let fluent = Fluent::new(name, keys, timestamp, &value);
 
     assert_eq!(extracted, fluent);
 
@@ -152,13 +153,13 @@ mod tests {
     let timestamp = 1337;
     let value = 3.14159;
 
-    let any_fluent = AnyFluent::new(name, keys, timestamp, value);
+    let any_fluent = AnyFluent::new(name, keys, timestamp, Box::new(value));
 
     assert!(matches!(any_fluent, AnyFluent::FloatPt(..)));
     assert_eq!(any_fluent.name(), name);
 
     let AnyFluent::FloatPt(extracted) = any_fluent.clone() else { panic!() };
-    let fluent = Fluent::new(name, keys, timestamp, value);
+    let fluent = Fluent::new(name, keys, timestamp, &value);
 
     assert_eq!(extracted, fluent);
 
@@ -174,13 +175,13 @@ mod tests {
     let timestamp = 1337;
     let value = true;
 
-    let any_fluent = AnyFluent::new(name, keys, timestamp, value);
+    let any_fluent = AnyFluent::new(name, keys, timestamp, Box::new(value));
 
     assert!(matches!(any_fluent, AnyFluent::Boolean(..)));
     assert_eq!(any_fluent.name(), name);
 
     let AnyFluent::Boolean(extracted) = any_fluent.clone() else { panic!() };
-    let fluent = Fluent::new(name, keys, timestamp, value);
+    let fluent = Fluent::new(name, keys, timestamp, &value);
 
     assert_eq!(extracted, fluent);
 
@@ -196,13 +197,13 @@ mod tests {
     let timestamp = 1337;
     let value = (3.14159, 2.71828);
 
-    let any_fluent = AnyFluent::new(name, keys, timestamp, value);
+    let any_fluent = AnyFluent::new(name, keys, timestamp, Box::new(value));
 
     assert!(matches!(any_fluent, AnyFluent::PlanePt(..)));
     assert_eq!(any_fluent.name(), name);
 
     let AnyFluent::PlanePt(extracted) = any_fluent.clone() else { panic!() };
-    let fluent = Fluent::new(name, keys, timestamp, value);
+    let fluent = Fluent::new(name, keys, timestamp, &value);
 
     assert_eq!(extracted, fluent);
 

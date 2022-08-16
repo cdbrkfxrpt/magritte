@@ -4,6 +4,14 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
+//! Contains the core functionality components of `magritte`.
+//!
+//! This includes the [`AppCore`] struct, which sets up and runs the
+//! application, the [`Broker`] struct, which handles message passing from
+//! publishers to subscribers of fluents, the [`Database`] struct and all its
+//! related elements used to interact with the PostgreSQL database and finally
+//! a number of [`util`] components.
+
 mod app_core;
 mod broker;
 mod database;

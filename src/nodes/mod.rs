@@ -4,6 +4,12 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
+//! [`Node`]s connect to the [`Broker`](crate::app_core::Broker) to publish and
+//! subscribe to [`Fluent`](crate::fluent::Fluent)s.
+//!
+//! Contains all the fun stuff required to implement nodes and send data
+//! around between them.
+
 mod fluent_handler;
 mod node;
 mod sink;
