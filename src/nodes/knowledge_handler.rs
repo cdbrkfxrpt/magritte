@@ -5,63 +5,69 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use crate::{app_core::util::unordered_congruent,
-            fluent::{AnyFluent, EvalFn, Timestamp},
-            nodes::{Node, NodeRx, NodeTx}};
+            fluent::{AnyFluent, FluentValue, Timestamp},
+            nodes::{KnowledgeNode, Node, NodeRx, NodeTx}};
 
 use async_trait::async_trait;
 use boolinator::Boolinator;
-use derivative::Derivative;
 use eyre::{bail, Result};
 use std::collections::BTreeMap;
-use tokio_postgres::Client;
+use tokio_postgres::{types::ToSql, Client};
 use tokio_stream::StreamExt;
 
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
+pub enum ResponseValueType {
+  Textual,
+  Integer,
+  FloatPt,
+  Boolean,
+}
+
+
+#[derive(Debug)]
 /// A [`Node`] which handles the progression of fluents by subscribing to
-/// dependency fluents and processing incoming values via a evaluation function
-/// to produce an output fluent, publishing this [`AnyFluent`] to the
-/// [`Broker`](crate::app_core::Broker).
-pub struct FluentHandler {
+/// dependency fluents and using incoming values to query the database for
+/// background knowledge, producing an output fluent which is published as an
+/// [`AnyFluent`] to the [`Broker`](crate::app_core::Broker).
+pub struct KnowledgeHandler {
   name:         String,
   dependencies: Vec<String>,
-  #[derivative(Debug = "ignore")]
-  eval_fn:      EvalFn,
-  requires_dbc: bool,
+  query_cmd:    String,
+  rvt:          ResponseValueType,
   deps_buffer:  BTreeMap<Timestamp, Vec<AnyFluent>>,
   // history:                  Vec<AnyFluent>,
   // window:                   Option<usize>,
   node_ch:      Option<(NodeTx, NodeRx)>,
 }
 
-impl FluentHandler {
-  /// Instantiate a [`FluentHandler`] with the name and dependencies of the
+impl KnowledgeHandler {
+  /// Instantiate a [`KnowledgeHandler`] with the name and dependencies of the
   /// [`AnyFluent`] it handles, as well as an evaluation function of type
   /// [`EvalFn`] (which is a wrapper struct for a closure).
   pub fn new(name: &str,
              dependencies: &[&str],
-             requires_dbc: bool,
-             eval_fn: EvalFn)
+             rvt: ResponseValueType,
+             query_cmd: &str)
              -> Self {
     let name = name.to_owned();
     let dependencies = dependencies.iter()
                                    .map(|e| e.to_string())
                                    .collect::<Vec<_>>();
+    let query_cmd = query_cmd.to_owned();
     let deps_buffer = BTreeMap::new();
     let node_ch = None;
 
     Self { name,
            dependencies,
-           eval_fn,
-           requires_dbc,
+           query_cmd,
+           rvt,
            deps_buffer,
            node_ch }
   }
 }
 
-#[async_trait]
-impl Node for FluentHandler {
+impl Node for KnowledgeHandler {
   fn publishes(&self) -> Vec<String> {
     vec![self.name.clone()]
   }
@@ -73,26 +79,33 @@ impl Node for FluentHandler {
   fn initialize(&mut self, node_tx: NodeTx, node_rx: NodeRx) {
     self.node_ch = Some((node_tx, node_rx));
   }
+}
 
-  fn requires_dbc(&self) -> bool {
-    self.requires_dbc
-  }
-
+#[async_trait]
+impl KnowledgeNode for KnowledgeHandler {
   /// This function contains a lot of the logic which defines the way fluents
   /// evolve over time, i.e. it contains the way dependencies are buffered,
   /// stored and detected to be complete for function evaluation, how
   /// background knowledge is obtained and provided to the evaluation function,
   /// how and when fluents are updated and published, all of that.
-  async fn run(mut self: Box<Self>,
-               _database_client: Option<Client>)
-               -> Result<()> {
+  async fn run(mut self: Box<Self>, database_client: Client) -> Result<()> {
     let (node_tx, mut node_rx) = match self.node_ch {
       Some((node_tx, node_rx)) => (node_tx, node_rx),
-      None => bail!("FluentHandler '{}' not initialized, aborting", self.name),
+      None => {
+        bail!("KnowledgeHandler '{}' not initialized, aborting", self.name)
+      }
+    };
+
+    let statement = match database_client.prepare(&self.query_cmd).await {
+      Ok(statement) => statement,
+      Err(err) => {
+        // drop(self.fluent_tx);
+        panic!("Error in Feeder PostgreSQL query: {}", err);
+      }
     };
 
     while let Some((_fluent_name, Ok(any_fluent))) = node_rx.next().await {
-      // info!("FluentHandler '{}' received: {:?}", self.name, any_fluent);
+      // info!("KnowledgeHandler '{}' received: {:?}", self.name, any_fluent);
 
       let keys = any_fluent.keys().to_vec();
       let timestamp = any_fluent.timestamp();
@@ -136,11 +149,25 @@ impl Node for FluentHandler {
             lhs_pos.cmp(&rhs_pos)
           });
 
-      // we've got all the dependencies now - feed them into the eval_fn
-      let fluent = AnyFluent::new(&self.name,
-                                  &keys,
-                                  timestamp,
-                                  self.eval_fn.evaluate_with(deps));
+      let values = deps.into_iter()
+                       .map(|af| Into::<Vec<&(dyn ToSql + Sync)>>::into(af))
+                       .collect::<Vec<_>>()
+                       .into_iter()
+                       .flatten()
+                       .collect::<Vec<_>>();
+
+      let mut rows =
+        database_client.query(&statement, values.as_slice()).await?;
+      let Some(row) = rows.pop() else { continue; };
+
+      let response: Box<dyn FluentValue> = match self.rvt {
+        ResponseValueType::Textual => Box::new(row.get::<usize, String>(0)),
+        ResponseValueType::Integer => Box::new(row.get::<usize, i64>(0)),
+        ResponseValueType::FloatPt => Box::new(row.get::<usize, f64>(0)),
+        ResponseValueType::Boolean => Box::new(row.get::<usize, bool>(0)),
+      };
+
+      let fluent = AnyFluent::new(&self.name, &keys, timestamp, response);
 
       node_tx.send(fluent)?;
     }

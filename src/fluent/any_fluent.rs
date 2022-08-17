@@ -60,6 +60,17 @@ impl AnyFluent {
       Self::PlanePt(fluent) => fluent.timestamp(),
     }
   }
+
+  /// Helper function to get last change of fluent.
+  pub fn last_change(&self) -> Timestamp {
+    match self {
+      Self::Textual(fluent) => fluent.last_change(),
+      Self::Integer(fluent) => fluent.last_change(),
+      Self::FloatPt(fluent) => fluent.last_change(),
+      Self::Boolean(fluent) => fluent.last_change(),
+      Self::PlanePt(fluent) => fluent.last_change(),
+    }
+  }
 }
 
 impl FluentValue for String {

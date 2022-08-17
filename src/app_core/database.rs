@@ -4,42 +4,20 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::fluent::AnyFluent;
-
 use eyre::Result;
 use serde::Deserialize;
-use tokio::{sync::{mpsc, oneshot},
-            task::JoinHandle};
 use tokio_postgres as tp;
 use tracing::error;
-
-
-/// Helper type for sender component of database request channel.
-pub type RequestTx = mpsc::UnboundedSender<DatabaseRequest>;
-/// Helper type for receiver component of database request channel.
-pub type RequestRx = mpsc::UnboundedReceiver<DatabaseRequest>;
-
-
-#[derive(Debug)]
-/// Used to request the execution and response of functions which rely on a
-/// database connection via the request handler of a [`Database`] object.
-pub struct DatabaseRequest {
-  fn_name:     String,
-  fn_input:    Vec<AnyFluent>,
-  response_tx: oneshot::Sender<AnyFluent>,
-}
 
 
 #[derive(Debug, Deserialize)]
 /// "Singleton" used to establish database connections from one single place
 /// and spawn database request handlers.
 pub struct Database {
-  host:       String,
-  user:       String,
-  password:   String,
-  dbname:     String,
-  #[serde(skip, default = "mpsc::unbounded_channel")]
-  request_ch: (RequestTx, RequestRx),
+  host:     String,
+  user:     String,
+  password: String,
+  dbname:   String,
 }
 
 impl Database {
@@ -61,35 +39,6 @@ impl Database {
 
     Ok(client)
   }
-
-  /// Retrieve sender side of channel to send database requests.
-  pub fn request_tx(&self) -> RequestTx {
-    self.request_ch.0.clone()
-  }
-
-  /// Spawn a new request handler which can execute asynchronously.
-  pub fn request_handler(&mut self) -> (RequestTx, JoinHandle<()>) {
-    let new_db = Self { host:       self.host.clone(),
-                        user:       self.user.clone(),
-                        password:   self.password.clone(),
-                        dbname:     self.dbname.clone(),
-                        request_ch: mpsc::unbounded_channel(), };
-
-    let database = std::mem::replace(self, new_db);
-
-    (database.request_ch.0.clone(),
-     tokio::spawn(async move {
-       let _database_client =
-         database.connect()
-                 .await
-                 .expect("unable to establish database connection");
-
-       // retrieve current receiver handle and update for future calls
-       let (_, _request_rx) = database.request_ch;
-
-       // listen to request_rx and handle requests
-     }))
-  }
 }
 
 // fin --------------------------------------------------------------------- //
@@ -101,7 +50,6 @@ mod tests {
   use indoc::indoc;
   use pretty_assertions::assert_eq;
   use tokio::sync::mpsc;
-  use wildmatch::WildMatch;
 
 
   #[test]
@@ -111,11 +59,10 @@ mod tests {
     let password = String::from("trinity");
     let dbname = String::from("nebukadnezar");
 
-    let dbc = Database { host:       host.clone(),
-                         user:       user.clone(),
-                         password:   password.clone(),
-                         dbname:     dbname.clone(),
-                         request_ch: mpsc::unbounded_channel(), };
+    let dbc = Database { host:     host.clone(),
+                         user:     user.clone(),
+                         password: password.clone(),
+                         dbname:   dbname.clone(), };
 
     // "dumb" tests
     assert_eq!(dbc.host, host);
@@ -129,10 +76,9 @@ mod tests {
           user: "neo",
           password: "trinity",
           dbname: "nebukadnezar",
-          *
       }"#};
 
-    assert!(WildMatch::new(match_str).matches(&format!("{:#?}", dbc)));
+    assert_eq!(format!("{:#?}", dbc), match_str);
 
     // ideally the methods connection to the database could be tested here as
     // well, for that to happen, we'd need either a mock database or a

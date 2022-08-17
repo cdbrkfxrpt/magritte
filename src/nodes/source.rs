@@ -4,11 +4,11 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use super::{Node, NodeRx, NodeTx, StructuralNode};
+use super::{Node, NodeRx, NodeTx};
 use crate::fluent::AnyFluent;
 
 use async_trait::async_trait;
-use eyre::{bail, Result};
+use eyre::{bail, eyre, Result};
 use serde::Deserialize;
 use tokio::time;
 use tokio_postgres::Client;
@@ -26,6 +26,7 @@ pub struct Source {
   node_tx:      Option<NodeTx>,
 }
 
+#[async_trait]
 impl Node for Source {
   /// `Source` publishes fluents specified by name in the app configuration.
   fn publishes(&self) -> Vec<String> {
@@ -41,10 +42,12 @@ impl Node for Source {
   fn initialize(&mut self, node_tx: NodeTx, _: NodeRx) {
     self.node_tx = Some(node_tx);
   }
-}
 
-#[async_trait]
-impl StructuralNode for Source {
+  /// `Source` requires a database client, so this method returns `true`.
+  fn requires_dbc(&self) -> bool {
+    true
+  }
+
   /// Runs the [`Source`], retrieving data from the database and publishing
   /// fluents to the [`Broker`](crate::app_core::Broker). Consumes the original
   /// object.
@@ -54,7 +57,12 @@ impl StructuralNode for Source {
   /// ```sql
   #[doc = include_str!("../sql/source.sql")]
   /// ```
-  async fn run(mut self: Box<Self>, database_client: Client) -> Result<()> {
+  async fn run(mut self: Box<Self>,
+               database_client: Option<Client>)
+               -> Result<()> {
+    let database_client =
+      database_client.ok_or(eyre!("Source requires a database client"))?;
+
     let node_tx = match self.node_tx {
       Some(node_tx) => node_tx,
       None => bail!("Source not initialized, aborting"),
@@ -131,6 +139,7 @@ struct RunParams {
   pub millis_per_cycle:  u64,
   pub datapoints_to_run: usize,
 }
+
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 /// Holds parameters for the database query performed by the [`Source`].

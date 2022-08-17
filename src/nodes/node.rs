@@ -4,13 +4,13 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::{app_core::RequestTx, fluent::AnyFluent};
+use crate::fluent::AnyFluent;
 
 use async_trait::async_trait;
 use eyre::Result;
 use std::fmt;
 use tokio::sync::mpsc;
-use tokio_postgres::Client;
+use tokio_postgres as tp;
 use tokio_stream::{wrappers::BroadcastStream, StreamMap};
 
 
@@ -25,6 +25,7 @@ pub type NodeRx = StreamMap<String, BroadcastStream<AnyFluent>>;
 
 /// Any type implementing this trait can register itself as a node at the
 /// [`Broker`](crate::app_core::Broker) service.
+#[async_trait]
 pub trait Node: fmt::Debug + Send {
   /// Provides a list of [`AnyFluent`]s the node publishes.
   fn publishes(&self) -> Vec<String>;
@@ -32,17 +33,8 @@ pub trait Node: fmt::Debug + Send {
   fn subscribes_to(&self) -> Vec<String>;
   /// Initalizes the node with its [`NodeTx`] and [`NodeRx`] elements.
   fn initialize(&mut self, node_tx: NodeTx, node_rx: NodeRx);
-}
-
-
-/// Implemented by nodes which require database access.
-#[async_trait]
-pub trait StructuralNode: Node {
-  async fn run(mut self: Box<Self>, database_client: Client) -> Result<()>;
-}
-
-/// Implemented by nodes which evaluate [`AnyFluent`]s.
-#[async_trait]
-pub trait FluentNode: Node {
-  async fn run(mut self: Box<Self>, request_tx: RequestTx) -> Result<()>;
+  /// Does this [`Node`] require a database client?
+  fn requires_dbc(&self) -> bool;
+  /// Method which runs the node. Database client is optional.
+  async fn run(mut self: Box<Self>, client: Option<tp::Client>) -> Result<()>;
 }

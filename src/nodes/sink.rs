@@ -4,11 +4,11 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use super::{Node, NodeRx, NodeTx, StructuralNode};
+use super::{Node, NodeRx, NodeTx};
 use crate::fluent::AnyFluent;
 
 use async_trait::async_trait;
-use eyre::{bail, Result};
+use eyre::{bail, eyre, Result};
 use serde::Deserialize;
 use tokio_postgres::Client;
 use tokio_stream::StreamExt;
@@ -24,6 +24,7 @@ pub struct Sink {
   node_rx:       Option<NodeRx>,
 }
 
+#[async_trait]
 impl Node for Sink {
   /// `Sink` publishes no fluents. Implementation returns empty `Vec`.
   fn publishes(&self) -> Vec<String> {
@@ -35,18 +36,25 @@ impl Node for Sink {
     self.subscribes_to.clone()
   }
 
+  /// `Sink` requires a database client, so this method returns `true`.
+  fn requires_dbc(&self) -> bool {
+    true
+  }
+
   /// `Sink` requires only a receiver handle since it publishes no fluents.
   fn initialize(&mut self, _: NodeTx, node_rx: NodeRx) {
     self.node_rx = Some(node_rx);
   }
-}
 
-#[async_trait]
-impl StructuralNode for Sink {
   /// Runs the [`Sink`], receiving fluents from the
   /// [`Broker`](crate::app_core::Broker) and writing them to the database.
   /// Consumes the original object.
-  async fn run(mut self: Box<Self>, database_client: Client) -> Result<()> {
+  async fn run(mut self: Box<Self>,
+               database_client: Option<Client>)
+               -> Result<()> {
+    let database_client =
+      database_client.ok_or(eyre!("Sink requires a database client"))?;
+
     let mut node_rx = match self.node_rx {
       Some(node_rx) => node_rx,
       None => bail!("Sink not initialized, aborting"),

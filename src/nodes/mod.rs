@@ -16,6 +16,6 @@ mod sink;
 mod source;
 
 pub use fluent_handler::FluentHandler;
-pub use node::{FluentNode, Node, NodeRx, NodeTx, StructuralNode};
+pub use node::{Node, NodeRx, NodeTx};
 pub use sink::Sink;
 pub use source::Source;

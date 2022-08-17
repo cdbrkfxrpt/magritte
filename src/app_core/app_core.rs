@@ -6,14 +6,12 @@
 
 use super::{broker::Broker, database::Database, util};
 use crate::{fluent::{AnyFluent, EvalFn},
-            nodes::{FluentHandler,
-                    FluentNode,
-                    Sink,
-                    Source,
-                    StructuralNode}};
+            nodes::{FluentHandler, Node, Sink, Source}};
 
+use boolinator::Boolinator;
 use clap::Parser;
 use eyre::Result;
+use indoc::indoc;
 use serde::Deserialize;
 use std::fs;
 use tracing::info;
@@ -22,12 +20,12 @@ use tracing::info;
 #[derive(Debug, Deserialize)]
 /// Deserialized from config file. Initializes core elements of `magritte`.
 pub struct AppCore {
-  database: Database,
-  broker:   Broker,
-  source:   Box<Source>,
-  sinks:    Vec<Box<Sink>>,
+  database:        Database,
+  broker:          Broker,
+  source:          Box<Source>,
+  sinks:           Vec<Box<Sink>>,
   #[serde(skip)]
-  nodes:    Vec<Box<dyn FluentNode>>,
+  fluent_handlers: Vec<Box<FluentHandler>>,
 }
 
 impl AppCore {
@@ -66,40 +64,35 @@ impl AppCore {
     }
 
     for def in include!("../../conf/fluent_handlers.rs") {
-      self.nodes
-          .push(Box::new(FluentHandler::new(def.0, &def.1, def.2)));
+      let fluent_handler = FluentHandler::new(def.0, &def.1, def.2, def.3);
+      self.fluent_handlers.push(Box::new(fluent_handler));
     }
+    self.broker.register_nodes(&mut self.fluent_handlers);
 
-    self.broker.register_nodes(&mut self.nodes);
     Ok(())
   }
 
   /// Runs the application. Consumes the `AppCore` object.
   pub async fn run(self) -> Result<()> {
     // decompose self into contained handles
-    let Self { mut database,
+    let Self { database,
                broker,
                source,
                sinks,
-               nodes, } = self;
-
-    // start the database request handler task
-    info!("starting request handler...");
-    let (request_tx, request_handler) = database.request_handler();
-    let request_handler_task = tokio::spawn(async move {
-      request_handler.await.expect("request handler has stopped");
-    });
+               fluent_handlers, } = self;
 
     // start nodes
     info!("starting node tasks...");
-    let mut node_tasks = Vec::new();
-    for node in nodes {
-      let node_request_tx = request_tx.clone();
-      node_tasks.push(tokio::spawn(async move {
-                        node.run(node_request_tx)
-                            .await
-                            .expect("node has stopped");
-                      }));
+    let mut handler_tasks = Vec::new();
+    for handler in fluent_handlers {
+      // Boolinator makes life easy (and Booleans into Options)
+      let handler_requires_dbc = handler.requires_dbc();
+      let dbc = handler_requires_dbc.as_some(database.connect().await?);
+
+      let handler_task = tokio::spawn(async move {
+        handler.run(dbc).await.expect("node has stopped");
+      });
+      handler_tasks.push(handler_task);
     }
 
     // establish a database connection and create a database client, then start
@@ -109,7 +102,7 @@ impl AppCore {
     for sink in sinks {
       let sink_dbc = database.connect().await?;
       let sink_task = tokio::spawn(async move {
-        sink.run(sink_dbc).await.expect("sink has stopped");
+        sink.run(Some(sink_dbc)).await.expect("sink has stopped");
       });
       sink_tasks.push(sink_task);
     }
@@ -119,7 +112,9 @@ impl AppCore {
     info!("starting source task...");
     let source_dbc = database.connect().await?;
     let source_task = tokio::spawn(async move {
-      source.run(source_dbc).await.expect("source has stopped");
+      source.run(Some(source_dbc))
+            .await
+            .expect("source has stopped");
     });
 
     // start the broker task, creating a handle to the task.
@@ -128,16 +123,13 @@ impl AppCore {
 
     // if broker task has ended, abort all tasks.
     info!("broker stopped, aborting all tasks...");
-    for node_task in node_tasks {
-      node_task.abort();
+    for handler_task in handler_tasks {
+      handler_task.abort();
     }
-
     for sink_task in sink_tasks {
       sink_task.abort();
     }
-
     source_task.abort();
-    request_handler_task.abort();
 
     Ok(())
   }

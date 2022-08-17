@@ -4,20 +4,29 @@
 # received a copy of this license along with the source code. If that is not
 # the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
+[broker]
+broadcast_capacity = 256
+
+
 [database]
 host = "localhost"
 user = "postgres"
 password = "barbershop"
 dbname = "doi105281zenodo1167595"
 
-[broker]
-broadcast_capacity = 32
+
+[[sinks]]
+subscribes_to = ["moving"]
+
+[[sinks]]
+subscribes_to = ["highSpeed"]
+
 
 [source]
 publishes = ["lon", "lat", "speed"]
 
   [source.run_params]
-  millis_per_cycle = 10
+  millis_per_cycle = 100
   datapoints_to_run = 100000
 
   [source.query_params]
@@ -26,9 +35,3 @@ publishes = ["lon", "lat", "speed"]
   from_table = "ais_data.dynamic_ships"
   order_by = "id"
   rows_to_fetch = 32
-
-[[sinks]]
-subscribes_to = ["moving"]
-
-[[sinks]]
-subscribes_to = ["highSpeed"]

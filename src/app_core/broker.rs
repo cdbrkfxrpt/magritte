@@ -5,14 +5,14 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use crate::{fluent::AnyFluent,
-            nodes::{FluentNode, Node, NodeTx}};
+            nodes::{Node, NodeTx}};
 
 use eyre::Result;
 use serde::Deserialize;
 use std::collections::HashMap;
 use tokio::sync::{broadcast, mpsc};
 use tokio_stream::StreamMap;
-use tracing::info;
+// use tracing::info;
 
 
 #[derive(Debug, Deserialize)]
@@ -55,9 +55,10 @@ impl Broker {
 
   /// Helper method to register a `Vec` of [`Node`]s at once. Iterates `Vec`,
   /// using the [`register`](Self::register) method to register them.
-  pub fn register_nodes(&mut self, nodes: &mut Vec<Box<dyn FluentNode>>) {
-    for node in nodes {
-      self.register(node);
+  pub fn register_nodes<T: Node + ?Sized>(&mut self,
+                                          handlers: &mut Vec<Box<T>>) {
+    for handler in handlers {
+      self.register(handler);
     }
   }
 
@@ -66,7 +67,7 @@ impl Broker {
   pub async fn run(self) -> Result<()> {
     let mut input_rx = self.node_ch.1;
     while let Some(any_fluent) = input_rx.recv().await {
-      info!("received fluent: {:?}", any_fluent);
+      // info!("received fluent: {:?}", any_fluent);
       let fluent_name = any_fluent.name().to_string();
       // sending on a broadcast channel may return an error Result, which just
       // means that there are no receivers for this channel. however, it still
