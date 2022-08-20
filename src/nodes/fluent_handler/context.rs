@@ -8,61 +8,73 @@ use crate::fluent::ValueType;
 
 use derivative::Derivative;
 use eyre::{bail, ensure, Result};
-use tokio_postgres::{row::Row,
-                     types::{FromSql, ToSql},
+use tokio_postgres::{types::{FromSql, ToSql},
                      Client,
                      Statement};
 
 
 #[derive(Derivative)]
 #[derivative(Debug)]
+/// Helper struct used by [`Context`] to bundle database related elements.
 struct DatabaseContext {
-  pub client:    Client,
+  client:    Client,
   #[derivative(Debug = "ignore")]
-  pub statement: Statement,
+  statement: Statement,
 }
 
 impl DatabaseContext {
-  pub async fn query_with(&self,
-                          params: &[&(dyn ToSql + Sync)])
-                          -> Result<Row> {
-    Ok(self.client.query_one(&self.statement, params).await?)
+  /// Prepares the database query template and sets up the [`DatabaseContext`].
+  pub async fn new(client: Client, query: &str) -> Result<Self> {
+    let statement = client.prepare(query).await?;
+    Ok(Self { client, statement })
+  }
+
+  /// Query the database using the prepared statement template. Queries must
+  /// return exactly one value in exactly one row for this to return `Ok(T)`.
+  pub async fn query_with<T>(&self,
+                             params: &[&(dyn ToSql + Sync)])
+                             -> Result<T>
+    where T: ValueType + for<'a> FromSql<'a>
+  {
+    let row = self.client.query_one(&self.statement, params).await?;
+    ensure!(row.len() == 1,
+            "database query must return exactly one value");
+
+    Ok(row.get::<usize, T>(0))
   }
 }
 
 
 #[derive(Derivative)]
 #[derivative(Debug)]
+/// Container for run time parameters used in user definitions of the
+/// [`FluentHandler`](super::FluentHandler) as it runs.
 pub struct Context {
   #[derivative(Debug = "ignore")]
   database: Option<DatabaseContext>,
 }
 
 impl Context {
+  /// Use inputs to set up new [`Context`] with e.g. a [`DatabaseContext`].
   pub async fn new(client: Client, query: Option<&str>) -> Result<Self> {
     let database = match query {
-      Some(query) => {
-        let statement = client.prepare(query).await?;
-        Some(DatabaseContext { client, statement })
-      }
+      Some(query) => Some(DatabaseContext::new(client, query).await?),
       None => None,
     };
 
     Ok(Self { database })
   }
 
+  /// Query the contained database connection, if available, with the statement
+  /// template generated into a query using the given params.
   pub async fn database_query<T>(&self,
-                                 values: &[&(dyn ToSql + Sync)])
+                                 params: &[&(dyn ToSql + Sync)])
                                  -> Result<T>
     where T: ValueType + for<'a> FromSql<'a>
   {
-    let row = match &self.database {
-      Some(database) => database.query_with(values).await?,
+    match &self.database {
+      Some(database) => Ok(database.query_with::<T>(params).await?),
       None => bail!("Context has no database information"),
-    };
-    ensure!(row.len() == 1,
-            "database query must return exactly one value");
-
-    Ok(row.get::<usize, T>(0))
+    }
   }
 }

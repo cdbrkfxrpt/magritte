@@ -28,6 +28,7 @@ impl Fluent {
     value.to_fluent(name, keys, timestamp)
   }
 
+  /// Returns the inner value of the [`Fluent`].
   pub fn value<T: ValueType>(&self) -> T {
     let boxed_value = match self {
       Self::Textual(fluent) => fluent.boxed_value(),

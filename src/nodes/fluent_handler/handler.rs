@@ -20,6 +20,7 @@ use tokio_stream::StreamExt;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
+/// Allows for ergonomic definition of [`FluentHandler`]s.
 pub struct FluentHandlerDefinition<'a> {
   pub name:           &'a str,
   pub dependencies:   &'a [&'a str],
