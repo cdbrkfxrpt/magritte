@@ -4,8 +4,9 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
+use super::{Context, EvalFn};
 use crate::{app_core::util::unordered_congruent,
-            fluent::{AnyFluent, EvalFn, Timestamp},
+            fluent::{Fluent, FluentTrait, Timestamp},
             nodes::{Node, NodeRx, NodeTx}};
 
 use async_trait::async_trait;
@@ -19,63 +20,56 @@ use tokio_stream::StreamExt;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
+pub struct FluentHandlerDefinition<'a> {
+  pub name:           &'a str,
+  pub dependencies:   &'a [&'a str],
+  pub database_query: Option<&'a str>,
+  #[derivative(Debug = "ignore")]
+  pub eval_fn:        EvalFn<'a>,
+}
+
+
+#[derive(Derivative)]
+#[derivative(Debug)]
 /// A [`Node`] which handles the progression of fluents by subscribing to
 /// dependency fluents and processing incoming values via a evaluation function
-/// to produce an output fluent, publishing this [`AnyFluent`] to the
+/// to produce an output fluent, publishing this [`Fluent`] to the
 /// [`Broker`](crate::app_core::Broker).
-pub struct FluentHandler {
+pub struct FluentHandler<'a> {
   name:         String,
   dependencies: Vec<String>,
+  context:      Context,
   #[derivative(Debug = "ignore")]
-  eval_fn:      EvalFn,
-  requires_dbc: bool,
-  deps_buffer:  BTreeMap<Timestamp, Vec<AnyFluent>>,
-  // history:                  Vec<AnyFluent>,
+  eval_fn:      EvalFn<'a>,
+  deps_buffer:  BTreeMap<Timestamp, Vec<Fluent>>,
+  // history:                  Vec<Fluent>,
   // window:                   Option<usize>,
   node_ch:      Option<(NodeTx, NodeRx)>,
 }
 
-impl FluentHandler {
+impl<'a> FluentHandler<'a> {
   /// Instantiate a [`FluentHandler`] with the name and dependencies of the
-  /// [`AnyFluent`] it handles, as well as an evaluation function of type
+  /// [`Fluent`] it handles, as well as an evaluation function of type
   /// [`EvalFn`] (which is a wrapper struct for a closure).
-  pub fn new(name: &str,
-             dependencies: &[&str],
-             requires_dbc: bool,
-             eval_fn: EvalFn)
-             -> Self {
-    let name = name.to_owned();
-    let dependencies = dependencies.iter()
-                                   .map(|e| e.to_string())
-                                   .collect::<Vec<_>>();
+  pub async fn new(def: FluentHandlerDefinition<'a>,
+                   database_client: Client)
+                   -> Result<FluentHandler<'a>> {
+    let name = def.name.to_owned();
+    let dependencies = def.dependencies
+                          .iter()
+                          .map(|e| e.to_string())
+                          .collect::<Vec<_>>();
+    let context = Context::new(database_client, def.database_query).await?;
+    let eval_fn = def.eval_fn;
     let deps_buffer = BTreeMap::new();
     let node_ch = None;
 
-    Self { name,
-           dependencies,
-           eval_fn,
-           requires_dbc,
-           deps_buffer,
-           node_ch }
-  }
-}
-
-#[async_trait]
-impl Node for FluentHandler {
-  fn publishes(&self) -> Vec<String> {
-    vec![self.name.clone()]
-  }
-
-  fn subscribes_to(&self) -> Vec<String> {
-    self.dependencies.clone()
-  }
-
-  fn initialize(&mut self, node_tx: NodeTx, node_rx: NodeRx) {
-    self.node_ch = Some((node_tx, node_rx));
-  }
-
-  fn requires_dbc(&self) -> bool {
-    self.requires_dbc
+    Ok(Self { name,
+              dependencies,
+              context,
+              eval_fn,
+              deps_buffer,
+              node_ch })
   }
 
   /// This function contains a lot of the logic which defines the way fluents
@@ -83,13 +77,13 @@ impl Node for FluentHandler {
   /// stored and detected to be complete for function evaluation, how
   /// background knowledge is obtained and provided to the evaluation function,
   /// how and when fluents are updated and published, all of that.
-  async fn run(mut self: Box<Self>,
-               _database_client: Option<Client>)
-               -> Result<()> {
-    let (node_tx, mut node_rx) = match self.node_ch {
+  pub async fn run(mut self) -> Result<()> {
+    let (node_tx, node_rx) = match &mut self.node_ch {
       Some((node_tx, node_rx)) => (node_tx, node_rx),
       None => bail!("FluentHandler '{}' not initialized, aborting", self.name),
     };
+
+    let eval_fn = self.eval_fn.into_inner();
 
     while let Some((_fluent_name, Ok(any_fluent))) = node_rx.next().await {
       // info!("FluentHandler '{}' received: {:?}", self.name, any_fluent);
@@ -110,7 +104,7 @@ impl Node for FluentHandler {
                                     .filter_map(|f| {
                                       (f.keys() == keys).as_some(f.clone())
                                     })
-                                    .collect::<Vec<AnyFluent>>();
+                                    .collect::<Vec<Fluent>>();
 
       let dep_names = deps.iter()
                           .map(|k| k.name().to_string())
@@ -137,14 +131,25 @@ impl Node for FluentHandler {
           });
 
       // we've got all the dependencies now - feed them into the eval_fn
-      let fluent = AnyFluent::new(&self.name,
-                                  &keys,
-                                  timestamp,
-                                  self.eval_fn.evaluate_with(deps));
+      let value = eval_fn(deps, &self.context).await;
 
-      node_tx.send(fluent)?;
+      node_tx.send(Fluent::new(&self.name, &keys, timestamp, value))?;
     }
-
     Ok(())
+  }
+}
+
+#[async_trait]
+impl<'a> Node for FluentHandler<'a> {
+  fn publishes(&self) -> Vec<String> {
+    vec![self.name.clone()]
+  }
+
+  fn subscribes_to(&self) -> Vec<String> {
+    self.dependencies.clone()
+  }
+
+  fn initialize(&mut self, node_tx: NodeTx, node_rx: NodeRx) {
+    self.node_ch = Some((node_tx, node_rx));
   }
 }

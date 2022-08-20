@@ -4,7 +4,7 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::{fluent::AnyFluent,
+use crate::{fluent::{Fluent, FluentTrait},
             nodes::{Node, NodeTx}};
 
 use eyre::Result;
@@ -21,15 +21,15 @@ use tokio_stream::StreamMap;
 pub struct Broker {
   broadcast_capacity: usize,
   #[serde(skip)]
-  fluents:            HashMap<String, broadcast::Sender<AnyFluent>>,
+  fluents:            HashMap<String, broadcast::Sender<Fluent>>,
   #[serde(skip, default = "mpsc::unbounded_channel")]
-  node_ch:            (NodeTx, mpsc::UnboundedReceiver<AnyFluent>),
+  node_ch:            (NodeTx, mpsc::UnboundedReceiver<Fluent>),
 }
 
 impl Broker {
   /// Method to register a [`Node`] at the [`Broker`]. Creates channels to
   /// communicate fluents as required and initializes [`Node`]s accordingly.
-  pub fn register<T: Node + ?Sized>(&mut self, node: &mut Box<T>) {
+  pub fn register<T: Node + ?Sized>(&mut self, node: &mut T) {
     // add all fluents, whether published or subscribed to by the node, into
     // the known list of fluents, and create broadcast sender handles to them
     for fluent_name in
@@ -51,15 +51,6 @@ impl Broker {
     // initialize Node with NodeTx and NodeRx
     let node_tx = self.node_ch.0.clone();
     node.initialize(node_tx, stream_map)
-  }
-
-  /// Helper method to register a `Vec` of [`Node`]s at once. Iterates `Vec`,
-  /// using the [`register`](Self::register) method to register them.
-  pub fn register_nodes<T: Node + ?Sized>(&mut self,
-                                          handlers: &mut Vec<Box<T>>) {
-    for handler in handlers {
-      self.register(handler);
-    }
   }
 
   /// Runs the [`Broker`], receiving fluents from [`Node`]s and forwarding them

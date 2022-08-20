@@ -18,18 +18,26 @@
 //! Finally, [`EvalFn`] is a wrapper for a user defined closure to evaluate the
 //! value of fluents.
 
-mod any_fluent;
-mod eval_fn;
 mod fluent;
-mod fluent_value;
+mod inner_fluent;
+mod value_type;
 
-pub use any_fluent::AnyFluent;
-pub use eval_fn::EvalFn;
 pub use fluent::Fluent;
-pub use fluent_value::FluentValue;
+pub use inner_fluent::InnerFluent;
+pub use value_type::ValueType;
 
+// fin re-exports ---------------------------------------------------------- //
 
 /// Type alias for key, i.e. sub-stream identifier, type.
 pub type Key = usize;
 /// Type alias for timestamp type.
 pub type Timestamp = usize;
+
+/// Trait for fluents.
+pub trait FluentTrait {
+  fn name(&self) -> &str;
+  fn keys(&self) -> &[Key];
+  fn timestamp(&self) -> Timestamp;
+  fn boxed_value(&self) -> Box<dyn ValueType>;
+  fn last_change(&self) -> Timestamp;
+}

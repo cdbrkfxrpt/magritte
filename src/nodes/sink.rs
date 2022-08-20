@@ -5,9 +5,8 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use super::{Node, NodeRx, NodeTx};
-use crate::fluent::AnyFluent;
+use crate::fluent::{Fluent, FluentTrait};
 
-use async_trait::async_trait;
 use eyre::{bail, eyre, Result};
 use serde::Deserialize;
 use tokio_postgres::Client;
@@ -16,7 +15,7 @@ use tracing::info;
 
 
 #[derive(Debug, Deserialize)]
-/// Receives [`AnyFluent`]s from the [`Broker`](crate::app_core::Broker)
+/// Receives [`Fluent`]s from the [`Broker`](crate::app_core::Broker)
 /// service and writes them to the PostgreSQL database.
 pub struct Sink {
   subscribes_to: Vec<String>,
@@ -24,34 +23,11 @@ pub struct Sink {
   node_rx:       Option<NodeRx>,
 }
 
-#[async_trait]
-impl Node for Sink {
-  /// `Sink` publishes no fluents. Implementation returns empty `Vec`.
-  fn publishes(&self) -> Vec<String> {
-    Vec::new()
-  }
-
-  /// `Sink` subscribes to fluents specified by name in the app configuration.
-  fn subscribes_to(&self) -> Vec<String> {
-    self.subscribes_to.clone()
-  }
-
-  /// `Sink` requires a database client, so this method returns `true`.
-  fn requires_dbc(&self) -> bool {
-    true
-  }
-
-  /// `Sink` requires only a receiver handle since it publishes no fluents.
-  fn initialize(&mut self, _: NodeTx, node_rx: NodeRx) {
-    self.node_rx = Some(node_rx);
-  }
-
+impl Sink {
   /// Runs the [`Sink`], receiving fluents from the
   /// [`Broker`](crate::app_core::Broker) and writing them to the database.
   /// Consumes the original object.
-  async fn run(mut self: Box<Self>,
-               database_client: Option<Client>)
-               -> Result<()> {
+  pub async fn run(self, database_client: Option<Client>) -> Result<()> {
     let database_client =
       database_client.ok_or(eyre!("Sink requires a database client"))?;
 
@@ -62,17 +38,17 @@ impl Node for Sink {
 
     let sql_raw = include_str!("../sql/sink.sql");
 
-    while let Some((_, Ok(any_fluent))) = node_rx.next().await {
-      info!("Sink received: {:?}", any_fluent);
-      let AnyFluent::Boolean(fluent) = any_fluent else {
+    while let Some((_, Ok(fluent))) = node_rx.next().await {
+      info!("Sink received: {:?}", fluent);
+      if !matches!(fluent, Fluent::Boolean(_)) {
         continue;
         // bail!("Sink received non-boolean fluent, aborting")
-      };
+      }
 
       let name = fluent.name();
       let keys = fluent.keys().iter().map(|&e| e as i32).collect::<Vec<_>>();
       let timestamp = fluent.timestamp() as i64;
-      let value = fluent.value();
+      let value = fluent.value::<bool>();
       let last_change = fluent.last_change() as i64;
 
       database_client.execute(sql_raw,
@@ -84,6 +60,23 @@ impl Node for Sink {
                      .await?;
     }
     Ok(())
+  }
+}
+
+impl Node for Sink {
+  /// `Sink` publishes no fluents. Implementation returns empty `Vec`.
+  fn publishes(&self) -> Vec<String> {
+    Vec::new()
+  }
+
+  /// `Sink` subscribes to fluents specified by name in the app configuration.
+  fn subscribes_to(&self) -> Vec<String> {
+    self.subscribes_to.clone()
+  }
+
+  /// `Sink` requires only a receiver handle since it publishes no fluents.
+  fn initialize(&mut self, _: NodeTx, node_rx: NodeRx) {
+    self.node_rx = Some(node_rx);
   }
 }
 

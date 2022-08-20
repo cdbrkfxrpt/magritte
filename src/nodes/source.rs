@@ -5,9 +5,8 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use super::{Node, NodeRx, NodeTx};
-use crate::fluent::AnyFluent;
+use crate::fluent::Fluent;
 
-use async_trait::async_trait;
 use eyre::{bail, eyre, Result};
 use serde::Deserialize;
 use tokio::time;
@@ -26,28 +25,7 @@ pub struct Source {
   node_tx:      Option<NodeTx>,
 }
 
-#[async_trait]
-impl Node for Source {
-  /// `Source` publishes fluents specified by name in the app configuration.
-  fn publishes(&self) -> Vec<String> {
-    self.publishes.clone()
-  }
-
-  /// `Source` subscribes to no fluents. Implmenetation returns empty `Vec`.
-  fn subscribes_to(&self) -> Vec<String> {
-    Vec::new()
-  }
-
-  /// `Source` requires only a sender handle since it subscribes to no fluents.
-  fn initialize(&mut self, node_tx: NodeTx, _: NodeRx) {
-    self.node_tx = Some(node_tx);
-  }
-
-  /// `Source` requires a database client, so this method returns `true`.
-  fn requires_dbc(&self) -> bool {
-    true
-  }
-
+impl Source {
   /// Runs the [`Source`], retrieving data from the database and publishing
   /// fluents to the [`Broker`](crate::app_core::Broker). Consumes the original
   /// object.
@@ -57,9 +35,7 @@ impl Node for Source {
   /// ```sql
   #[doc = include_str!("../sql/source.sql")]
   /// ```
-  async fn run(mut self: Box<Self>,
-               database_client: Option<Client>)
-               -> Result<()> {
+  pub async fn run(self, database_client: Option<Client>) -> Result<()> {
     let database_client =
       database_client.ok_or(eyre!("Source requires a database client"))?;
 
@@ -107,7 +83,7 @@ impl Node for Source {
           for fluent_name in self.publishes.iter() {
             let value: f64 = row.get(fluent_name.as_str());
             let fluent =
-              AnyFluent::new(&fluent_name, &[key], timestamp, Box::new(value));
+              Fluent::new(&fluent_name, &[key], timestamp, Box::new(value));
 
             node_tx.send(fluent)?;
           }
@@ -129,6 +105,23 @@ impl Node for Source {
     }
 
     Ok(())
+  }
+}
+
+impl Node for Source {
+  /// `Source` publishes fluents specified by name in the app configuration.
+  fn publishes(&self) -> Vec<String> {
+    self.publishes.clone()
+  }
+
+  /// `Source` subscribes to no fluents. Implmenetation returns empty `Vec`.
+  fn subscribes_to(&self) -> Vec<String> {
+    Vec::new()
+  }
+
+  /// `Source` requires only a sender handle since it subscribes to no fluents.
+  fn initialize(&mut self, node_tx: NodeTx, _: NodeRx) {
+    self.node_tx = Some(node_tx);
   }
 }
 

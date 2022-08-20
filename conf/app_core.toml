@@ -19,7 +19,7 @@ dbname = "doi105281zenodo1167595"
 subscribes_to = ["moving"]
 
 [[sinks]]
-subscribes_to = ["highSpeed"]
+subscribes_to = ["high_speed"]
 
 
 [source]

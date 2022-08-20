@@ -22,6 +22,7 @@
 #![allow(dead_code)] // remove once done
 #![feature(mutex_unlock)]
 #![feature(box_into_inner)]
+#![feature(downcast_unchecked)]
 #![feature(let_else)]
 //
 
@@ -69,12 +70,11 @@ async fn main() -> Result<()> {
   });
 
   info!("reading command line arguments and config file to init app...");
-  let mut app_core = AppCore::init()?;
+  let app_core = AppCore::init()?;
   info!("{:#?}", app_core);
 
-  info!("preparing database for run...");
-  app_core.prepare_run().await?;
 
+  info!("setting up and running the application...");
   let main_tx = tx.clone();
   let core_task = tokio::spawn(async move {
     match app_core.run().await {

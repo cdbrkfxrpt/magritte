@@ -5,13 +5,17 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use super::{broker::Broker, database::Database, util};
-use crate::{fluent::{AnyFluent, EvalFn},
-            nodes::{FluentHandler, Node, Sink, Source}};
+use crate::{fluent::{Fluent, FluentTrait, ValueType},
+            nodes::{fluent_handler::{EvalFn,
+                                     FluentHandler,
+                                     FluentHandlerDefinition},
+                    Sink,
+                    Source}};
 
-use boolinator::Boolinator;
 use clap::Parser;
 use eyre::Result;
-use indoc::indoc;
+use futures::future::FutureExt;
+// use indoc::indoc;
 use serde::Deserialize;
 use std::fs;
 use tracing::info;
@@ -20,12 +24,10 @@ use tracing::info;
 #[derive(Debug, Deserialize)]
 /// Deserialized from config file. Initializes core elements of `magritte`.
 pub struct AppCore {
-  database:        Database,
-  broker:          Broker,
-  source:          Box<Source>,
-  sinks:           Vec<Box<Sink>>,
-  #[serde(skip)]
-  fluent_handlers: Vec<Box<FluentHandler>>,
+  database: Database,
+  broker:   Broker,
+  source:   Source,
+  sinks:    Vec<Sink>,
 }
 
 impl AppCore {
@@ -46,9 +48,17 @@ impl AppCore {
   /// ```
   ///
   /// Furthermore, registers the [`Source`], [`Sink`] and fluent nodes at the
-  /// broker and makes `magritte` ready to run.
-  pub async fn prepare_run(&mut self) -> Result<()> {
-    let client = self.database.connect().await?;
+  /// broker and makes `magritte` ready to run. Finally - runs the application.
+  /// Consumes the `AppCore` object.
+  pub async fn run(self) -> Result<()> {
+    // decompose self into contained handles
+    let Self { database,
+               mut broker,
+               mut source,
+               mut sinks, } = self;
+
+    // run prep
+    let client = database.connect().await?;
 
     let sql_raw = include_str!("../sql/prepare_run.sql");
     info!("executing SYSTEM run preparation SQL:\n\n{}", sql_raw);
@@ -58,41 +68,21 @@ impl AppCore {
     info!("executing USER run preparation SQL:\n\n{}", sql_raw);
     client.batch_execute(sql_raw).await?;
 
-    self.broker.register(&mut self.source);
-    for sink in self.sinks.iter_mut() {
-      self.broker.register(sink);
+    broker.register(&mut source);
+    for sink in sinks.iter_mut() {
+      broker.register(sink);
     }
 
+    // initialize and run nodes
+    let mut node_tasks = Vec::new();
     for def in include!("../../conf/fluent_handlers.rs") {
-      let fluent_handler = FluentHandler::new(def.0, &def.1, def.2, def.3);
-      self.fluent_handlers.push(Box::new(fluent_handler));
-    }
-    self.broker.register_nodes(&mut self.fluent_handlers);
+      let mut node = FluentHandler::new(def, database.connect().await?).await?;
+      broker.register(&mut node);
 
-    Ok(())
-  }
-
-  /// Runs the application. Consumes the `AppCore` object.
-  pub async fn run(self) -> Result<()> {
-    // decompose self into contained handles
-    let Self { database,
-               broker,
-               source,
-               sinks,
-               fluent_handlers, } = self;
-
-    // start nodes
-    info!("starting node tasks...");
-    let mut handler_tasks = Vec::new();
-    for handler in fluent_handlers {
-      // Boolinator makes life easy (and Booleans into Options)
-      let handler_requires_dbc = handler.requires_dbc();
-      let dbc = handler_requires_dbc.as_some(database.connect().await?);
-
-      let handler_task = tokio::spawn(async move {
-        handler.run(dbc).await.expect("node has stopped");
+      let task = tokio::spawn(async move {
+        node.run().await.expect("Node has stopped");
       });
-      handler_tasks.push(handler_task);
+      node_tasks.push(task);
     }
 
     // establish a database connection and create a database client, then start
@@ -123,8 +113,8 @@ impl AppCore {
 
     // if broker task has ended, abort all tasks.
     info!("broker stopped, aborting all tasks...");
-    for handler_task in handler_tasks {
-      handler_task.abort();
+    for node_task in node_tasks {
+      node_task.abort();
     }
     for sink_task in sink_tasks {
       sink_task.abort();
@@ -141,7 +131,7 @@ impl AppCore {
 #[cfg(test)]
 mod tests {
   use super::AppCore;
-  use crate::{fluent::AnyFluent,
+  use crate::{fluent::Fluent,
               nodes::{Node, NodeRx, StructuralNode},
               stringvec};
 
@@ -166,7 +156,7 @@ mod tests {
       source.run(database_client).await.unwrap();
     });
 
-    let AnyFluent::FloatPt(fluent) = rx.recv().await.unwrap() else {
+    let Fluent::FloatPt(fluent) = rx.recv().await.unwrap() else {
       panic!()
     };
 

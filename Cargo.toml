@@ -18,8 +18,9 @@ boolinator = "2.4"
 clap = { version = "3.0", features = ["derive"] }
 color-eyre = "0.6"
 derivative = "2.2"
+downcast-rs = "1.2"
 eyre = "0.6"
-getset = "0.1"
+futures = "0.3"
 indoc = "1.0"
 toml = "0.5"
 

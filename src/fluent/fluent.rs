@@ -4,96 +4,97 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use super::{Key, Timestamp};
-
-use eyre::{ensure, Result};
-use getset::{CopyGetters, Getters, MutGetters};
-use std::{cmp::Ordering, fmt};
+use super::{FluentTrait, InnerFluent, Key, Timestamp, ValueType};
 
 
-#[derive(Clone, Debug, CopyGetters, Getters, MutGetters)]
-/// Core application data type. Any property that is subject to change is
-/// represented by a fluent.
-pub struct Fluent<ValueType>
-  where ValueType: fmt::Debug + Clone + PartialEq {
-  #[getset(get = "pub", get_mut = "pub")]
-  name:        String,
-  #[getset(get = "pub", get_mut = "pub")]
-  keys:        Vec<Key>,
-  #[getset(get_copy = "pub", get_mut = "pub")]
-  timestamp:   Timestamp,
-  #[getset(get = "pub", get_mut = "pub")]
-  value:       ValueType,
-  #[getset(get_copy = "pub", get_mut = "pub")]
-  last_change: Timestamp,
+#[derive(Clone, Debug, PartialEq)]
+/// Enables sending [`Fluent`]s through channels.
+pub enum Fluent {
+  Textual(InnerFluent<String>),
+  Integer(InnerFluent<i64>),
+  FloatPt(InnerFluent<f64>),
+  Boolean(InnerFluent<bool>),
+  PlanePt(InnerFluent<(f64, f64)>),
 }
 
-impl<ValueType> Fluent<ValueType>
-  where ValueType: fmt::Debug + Clone + PartialEq
-{
-  /// A fluent needs to have a name and associated keys, i.e. sub-streams, to
-  /// be uniquely identified. An initial timestamp and value must be provided,
-  /// where the value can be of any type that implements `PartialEq + Eq`.
+impl Fluent {
+  /// Allows the creation of [`Fluent`] objects using any value of a type that
+  /// implements the [`ValueType`] trait, which is a helper trait.
   pub fn new(name: &str,
              keys: &[Key],
              timestamp: Timestamp,
-             value: &ValueType)
+             value: Box<dyn ValueType>)
              -> Self {
-    Self { name:        name.to_owned(),
-           keys:        keys.to_owned(),
-           timestamp:   timestamp,
-           value:       value.clone(),
-           last_change: timestamp, }
+    value.to_fluent(name, keys, timestamp)
   }
 
-  /// Update the fluent with a new timestamp and value. The new timestamp must
-  /// be after the old one (tested via `timestamp > self.timestamp`) for this
-  /// method to return `Ok(())`. This method also updates the value of
-  /// `last_change` with the value of `timestamp` if the value is changed.
-  pub fn update(&mut self,
-                timestamp: Timestamp,
-                value: ValueType)
-                -> Result<()> {
-    ensure!(timestamp > self.timestamp,
-            "cannot update fluent with equal timestamp");
+  pub fn value<T: ValueType>(&self) -> T {
+    let boxed_value = match self {
+      Self::Textual(fluent) => fluent.boxed_value(),
+      Self::Integer(fluent) => fluent.boxed_value(),
+      Self::FloatPt(fluent) => fluent.boxed_value(),
+      Self::Boolean(fluent) => fluent.boxed_value(),
+      Self::PlanePt(fluent) => fluent.boxed_value(),
+    };
 
-    self.timestamp = timestamp;
-    if self.value != value {
-      self.value = value;
-      self.last_change = timestamp;
+    // unwrap is safe due to trait bounds on T
+    Box::into_inner(boxed_value.downcast::<T>().unwrap())
+  }
+}
+
+impl FluentTrait for Fluent {
+  /// Helper function to get fluent name.
+  fn name(&self) -> &str {
+    match self {
+      Self::Textual(fluent) => fluent.name(),
+      Self::Integer(fluent) => fluent.name(),
+      Self::FloatPt(fluent) => fluent.name(),
+      Self::Boolean(fluent) => fluent.name(),
+      Self::PlanePt(fluent) => fluent.name(),
     }
-    Ok(())
   }
-}
 
-impl<ValueType> PartialEq for Fluent<ValueType>
-  where ValueType: fmt::Debug + Clone + PartialEq
-{
-  fn eq(&self, other: &Self) -> bool {
-    self.name == other.name
-    && self.keys == other.keys
-    && self.timestamp == other.timestamp
+  /// Helper function to get fluent keys.
+  fn keys(&self) -> &[Key] {
+    match self {
+      Self::Textual(fluent) => fluent.keys(),
+      Self::Integer(fluent) => fluent.keys(),
+      Self::FloatPt(fluent) => fluent.keys(),
+      Self::Boolean(fluent) => fluent.keys(),
+      Self::PlanePt(fluent) => fluent.keys(),
+    }
   }
-}
 
-impl<ValueType> Eq for Fluent<ValueType>
-  where ValueType: fmt::Debug + Clone + PartialEq
-{
-}
-
-impl<ValueType> PartialOrd for Fluent<ValueType>
-  where ValueType: fmt::Debug + Clone + PartialEq
-{
-  fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-    Some(self.cmp(&other))
+  /// Helper function to get fluent timestamp.
+  fn timestamp(&self) -> Timestamp {
+    match self {
+      Self::Textual(fluent) => fluent.timestamp(),
+      Self::Integer(fluent) => fluent.timestamp(),
+      Self::FloatPt(fluent) => fluent.timestamp(),
+      Self::Boolean(fluent) => fluent.timestamp(),
+      Self::PlanePt(fluent) => fluent.timestamp(),
+    }
   }
-}
 
-impl<ValueType> Ord for Fluent<ValueType>
-  where ValueType: fmt::Debug + Clone + PartialEq
-{
-  fn cmp(&self, other: &Self) -> Ordering {
-    self.timestamp.cmp(&other.timestamp)
+  fn boxed_value(&self) -> Box<dyn ValueType> {
+    match self {
+      Self::Textual(fluent) => fluent.boxed_value(),
+      Self::Integer(fluent) => fluent.boxed_value(),
+      Self::FloatPt(fluent) => fluent.boxed_value(),
+      Self::Boolean(fluent) => fluent.boxed_value(),
+      Self::PlanePt(fluent) => fluent.boxed_value(),
+    }
+  }
+
+  /// Helper function to get last change of fluent.
+  fn last_change(&self) -> Timestamp {
+    match self {
+      Self::Textual(fluent) => fluent.last_change(),
+      Self::Integer(fluent) => fluent.last_change(),
+      Self::FloatPt(fluent) => fluent.last_change(),
+      Self::Boolean(fluent) => fluent.last_change(),
+      Self::PlanePt(fluent) => fluent.last_change(),
+    }
   }
 }
 
@@ -101,10 +102,9 @@ impl<ValueType> Ord for Fluent<ValueType>
 
 #[cfg(test)]
 mod tests {
-  use super::Fluent;
+  use super::{Fluent, InnerFluent};
 
-  use pretty_assertions::{assert_eq, assert_ne};
-  use std::convert::From;
+  use pretty_assertions::assert_eq;
 
 
   #[test]
@@ -114,45 +114,20 @@ mod tests {
     let timestamp = 1337;
     let value = String::from("running");
 
-    let fluent = Fluent::new(name, keys, timestamp, &value);
+    let any_fluent =
+      Fluent::new(name, keys, timestamp, Box::new(value.clone()));
 
-    assert_eq!(fluent.name, name.to_string());
-    assert_eq!(fluent.name(), name);
-    assert_eq!(fluent.keys, keys.to_vec());
-    assert_eq!(fluent.keys(), keys);
-    assert_eq!(fluent.timestamp, timestamp);
-    assert_eq!(fluent.timestamp(), timestamp);
-    assert_eq!(fluent.value, value);
-    assert_eq!(fluent.value(), &value);
-    assert_eq!(fluent.last_change, timestamp);
-    assert_eq!(fluent.last_change(), timestamp);
+    assert!(matches!(any_fluent, Fluent::Textual(..)));
+    assert_eq!(any_fluent.name(), name);
 
-    let mut other = Fluent::new(name, keys, timestamp, &value);
-    assert_eq!(fluent, other);
+    let Fluent::Textual(extracted) = any_fluent.clone() else { panic!() };
+    let fluent = InnerFluent::new(name, keys, timestamp, &value);
 
-    let new_timestamp = 1338;
-    let new_value = String::from("blocked");
+    assert_eq!(extracted, fluent);
 
-    assert!(other.update(timestamp, new_value.clone()).is_err());
-    assert!(other.update(new_timestamp, new_value.clone()).is_ok());
-
-    assert_eq!(other.value, new_value);
-    assert_eq!(other.value(), &new_value);
-    assert_eq!(other.last_change(), new_timestamp);
-    assert!(fluent < other);
-
-    assert!(other.update(1339, new_value).is_ok());
-    assert_eq!(other.last_change(), new_timestamp);
-    assert!(fluent < other);
-
-    let mut other = fluent.clone();
-    *other.name_mut() = "new_name".to_string();
-    *other.keys_mut() = vec![42, 23];
-    *other.timestamp_mut() = 1339;
-    *other.value_mut() = "blocked".to_string();
-    *other.last_change_mut() = 1338;
-
-    assert_ne!(other, fluent);
+    let dbg_print = format!("{:?}", any_fluent);
+    assert_eq!(&dbg_print,
+               r#"Textual(InnerFluent { name: "textual_fluent", keys: [23, 42], timestamp: 1337, value: "running", last_change: 1337 })"#);
   }
 
   #[test]
@@ -162,45 +137,19 @@ mod tests {
     let timestamp = 1337;
     let value = 3;
 
-    let fluent = Fluent::new(name, keys, timestamp, &value);
+    let any_fluent = Fluent::new(name, keys, timestamp, Box::new(value));
 
-    assert_eq!(fluent.name, name.to_string());
-    assert_eq!(fluent.name(), name);
-    assert_eq!(fluent.keys, keys.to_vec());
-    assert_eq!(fluent.keys(), keys);
-    assert_eq!(fluent.timestamp, timestamp);
-    assert_eq!(fluent.timestamp(), timestamp);
-    assert_eq!(fluent.value, value);
-    assert_eq!(fluent.value(), &value);
-    assert_eq!(fluent.last_change, timestamp);
-    assert_eq!(fluent.last_change(), timestamp);
+    assert!(matches!(any_fluent, Fluent::Integer(..)));
+    assert_eq!(any_fluent.name(), name);
 
-    let mut other = Fluent::new(name, keys, timestamp, &value);
-    assert_eq!(fluent, other);
+    let Fluent::Integer(extracted) = any_fluent.clone() else { panic!() };
+    let fluent = InnerFluent::new(name, keys, timestamp, &value);
 
-    let new_timestamp = 1338;
-    let new_value = 2;
+    assert_eq!(extracted, fluent);
 
-    assert!(other.update(timestamp, new_value).is_err());
-    assert!(other.update(new_timestamp, new_value).is_ok());
-
-    assert_eq!(other.value, new_value);
-    assert_eq!(other.value(), &new_value);
-    assert_eq!(other.last_change(), new_timestamp);
-    assert!(fluent < other);
-
-    assert!(other.update(1339, new_value).is_ok());
-    assert_eq!(other.last_change(), new_timestamp);
-    assert!(fluent < other);
-
-    let mut other = fluent.clone();
-    *other.name_mut() = "new_name".to_string();
-    *other.keys_mut() = vec![42, 23];
-    *other.timestamp_mut() = 1339;
-    *other.value_mut() = 5;
-    *other.last_change_mut() = 1338;
-
-    assert_ne!(other, fluent);
+    let dbg_print = format!("{:?}", any_fluent);
+    assert_eq!(&dbg_print,
+               r#"Integer(InnerFluent { name: "integer_fluent", keys: [23, 42], timestamp: 1337, value: 3, last_change: 1337 })"#);
   }
 
   #[test]
@@ -210,45 +159,19 @@ mod tests {
     let timestamp = 1337;
     let value = 3.14159;
 
-    let fluent = Fluent::new(name, keys, timestamp, &value);
+    let any_fluent = Fluent::new(name, keys, timestamp, Box::new(value));
 
-    assert_eq!(fluent.name, name.to_string());
-    assert_eq!(fluent.name(), name);
-    assert_eq!(fluent.keys, keys.to_vec());
-    assert_eq!(fluent.keys(), keys);
-    assert_eq!(fluent.timestamp, timestamp);
-    assert_eq!(fluent.timestamp(), timestamp);
-    assert_eq!(fluent.value, value);
-    assert_eq!(fluent.value(), &value);
-    assert_eq!(fluent.last_change, timestamp);
-    assert_eq!(fluent.last_change(), timestamp);
+    assert!(matches!(any_fluent, Fluent::FloatPt(..)));
+    assert_eq!(any_fluent.name(), name);
 
-    let mut other = Fluent::new(name, keys, timestamp, &value);
-    assert_eq!(fluent, other);
+    let Fluent::FloatPt(extracted) = any_fluent.clone() else { panic!() };
+    let fluent = InnerFluent::new(name, keys, timestamp, &value);
 
-    let new_timestamp = 1338;
-    let new_value = 2.71828;
+    assert_eq!(extracted, fluent);
 
-    assert!(other.update(timestamp, new_value).is_err());
-    assert!(other.update(new_timestamp, new_value).is_ok());
-
-    assert_eq!(other.value, new_value);
-    assert_eq!(other.value(), &new_value);
-    assert_eq!(other.last_change(), new_timestamp);
-    assert!(fluent < other);
-
-    assert!(other.update(1339, new_value).is_ok());
-    assert_eq!(other.last_change(), new_timestamp);
-    assert!(fluent < other);
-
-    let mut other = fluent.clone();
-    *other.name_mut() = "new_name".to_string();
-    *other.keys_mut() = vec![42, 23];
-    *other.timestamp_mut() = 1339;
-    *other.value_mut() = 5.72;
-    *other.last_change_mut() = 1338;
-
-    assert_ne!(other, fluent);
+    let dbg_print = format!("{:?}", any_fluent);
+    assert_eq!(&dbg_print,
+               r#"FloatPt(InnerFluent { name: "floatpt_fluent", keys: [23, 42], timestamp: 1337, value: 3.14159, last_change: 1337 })"#);
   }
 
   #[test]
@@ -258,45 +181,19 @@ mod tests {
     let timestamp = 1337;
     let value = true;
 
-    let fluent = Fluent::new(name, keys, timestamp, &value);
+    let any_fluent = Fluent::new(name, keys, timestamp, Box::new(value));
 
-    assert_eq!(fluent.name, name.to_string());
-    assert_eq!(fluent.name(), name);
-    assert_eq!(fluent.keys, keys.to_vec());
-    assert_eq!(fluent.keys(), keys);
-    assert_eq!(fluent.timestamp, timestamp);
-    assert_eq!(fluent.timestamp(), timestamp);
-    assert_eq!(fluent.value, value);
-    assert_eq!(fluent.value(), &value);
-    assert_eq!(fluent.last_change, timestamp);
-    assert_eq!(fluent.last_change(), timestamp);
+    assert!(matches!(any_fluent, Fluent::Boolean(..)));
+    assert_eq!(any_fluent.name(), name);
 
-    let mut other = Fluent::new(name, keys, timestamp, &value);
-    assert_eq!(fluent, other);
+    let Fluent::Boolean(extracted) = any_fluent.clone() else { panic!() };
+    let fluent = InnerFluent::new(name, keys, timestamp, &value);
 
-    let new_timestamp = 1338;
-    let new_value = false;
+    assert_eq!(extracted, fluent);
 
-    assert!(other.update(timestamp, new_value).is_err());
-    assert!(other.update(new_timestamp, new_value).is_ok());
-
-    assert_eq!(other.value, new_value);
-    assert_eq!(other.value(), &new_value);
-    assert_eq!(other.last_change(), new_timestamp);
-    assert!(fluent < other);
-
-    assert!(other.update(1339, new_value).is_ok());
-    assert_eq!(other.last_change(), new_timestamp);
-    assert!(fluent < other);
-
-    let mut other = fluent.clone();
-    *other.name_mut() = "new_name".to_string();
-    *other.keys_mut() = vec![42, 23];
-    *other.timestamp_mut() = 1339;
-    *other.value_mut() = false;
-    *other.last_change_mut() = 1338;
-
-    assert_ne!(other, fluent);
+    let dbg_print = format!("{:?}", any_fluent);
+    assert_eq!(&dbg_print,
+               r#"Boolean(InnerFluent { name: "boolean_fluent", keys: [23, 42], timestamp: 1337, value: true, last_change: 1337 })"#);
   }
 
   #[test]
@@ -306,44 +203,18 @@ mod tests {
     let timestamp = 1337;
     let value = (3.14159, 2.71828);
 
-    let fluent = Fluent::new(name, keys, timestamp, &value);
+    let any_fluent = Fluent::new(name, keys, timestamp, Box::new(value));
 
-    assert_eq!(fluent.name, name.to_string());
-    assert_eq!(fluent.name(), name);
-    assert_eq!(fluent.keys, keys.to_vec());
-    assert_eq!(fluent.keys(), keys);
-    assert_eq!(fluent.timestamp, timestamp);
-    assert_eq!(fluent.timestamp(), timestamp);
-    assert_eq!(fluent.value, value);
-    assert_eq!(fluent.value(), &value);
-    assert_eq!(fluent.last_change, timestamp);
-    assert_eq!(fluent.last_change(), timestamp);
+    assert!(matches!(any_fluent, Fluent::PlanePt(..)));
+    assert_eq!(any_fluent.name(), name);
 
-    let mut other = Fluent::new(name, keys, timestamp, &value);
-    assert_eq!(fluent, other);
+    let Fluent::PlanePt(extracted) = any_fluent.clone() else { panic!() };
+    let fluent = InnerFluent::new(name, keys, timestamp, &value);
 
-    let new_timestamp = 1338;
-    let new_value = (2.71828, 3.14159);
+    assert_eq!(extracted, fluent);
 
-    assert!(other.update(timestamp, new_value).is_err());
-    assert!(other.update(new_timestamp, new_value).is_ok());
-
-    assert_eq!(other.value, new_value);
-    assert_eq!(other.value(), &new_value);
-    assert_eq!(other.last_change(), new_timestamp);
-    assert!(fluent < other);
-
-    assert!(other.update(1339, new_value).is_ok());
-    assert_eq!(other.last_change(), new_timestamp);
-    assert!(fluent < other);
-
-    let mut other = fluent.clone();
-    *other.name_mut() = "new_name".to_string();
-    *other.keys_mut() = vec![42, 23];
-    *other.timestamp_mut() = 1339;
-    *other.value_mut() = (5.72, 7.31);
-    *other.last_change_mut() = 1338;
-
-    assert_ne!(other, fluent);
+    let dbg_print = format!("{:?}", any_fluent);
+    assert_eq!(&dbg_print,
+               r#"PlanePt(InnerFluent { name: "planept_fluent", keys: [23, 42], timestamp: 1337, value: (3.14159, 2.71828), last_change: 1337 })"#);
   }
 }
