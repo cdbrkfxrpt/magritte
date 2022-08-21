@@ -9,7 +9,6 @@ use crate::{fluent::{Fluent, FluentTrait, Timestamp},
             nodes::{Node, NodeRx, NodeTx}};
 
 use async_trait::async_trait;
-use boolinator::Boolinator;
 use derivative::Derivative;
 use eyre::{bail, Result};
 use std::collections::BTreeMap;
