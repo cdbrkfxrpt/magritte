@@ -102,9 +102,9 @@ impl<VT: ValueType + PartialEq + Clone> Ord for InnerFluent<VT> {
 
 #[cfg(test)]
 mod tests {
-  use super::InnerFluent;
+  use super::{FluentTrait, InnerFluent};
 
-  use pretty_assertions::{assert_eq, assert_ne};
+  use pretty_assertions::assert_eq;
   use std::convert::From;
 
 
@@ -115,7 +115,7 @@ mod tests {
     let timestamp = 1337;
     let value = String::from("running");
 
-    let fluent = InnerFluent::new(name, keys, timestamp, &value);
+    let fluent = InnerFluent::new(name, keys, timestamp, value.clone());
 
     assert_eq!(fluent.name, name.to_string());
     assert_eq!(fluent.name(), name);
@@ -124,11 +124,12 @@ mod tests {
     assert_eq!(fluent.timestamp, timestamp);
     assert_eq!(fluent.timestamp(), timestamp);
     assert_eq!(fluent.value, value);
-    assert_eq!(fluent.value(), &value);
+    let boxed_value = fluent.boxed_value().downcast::<String>().unwrap();
+    assert_eq!(*boxed_value, value);
     assert_eq!(fluent.last_change, timestamp);
     assert_eq!(fluent.last_change(), timestamp);
 
-    let mut other = InnerFluent::new(name, keys, timestamp, &value);
+    let mut other = InnerFluent::new(name, keys, timestamp, value);
     assert_eq!(fluent, other);
 
     let new_timestamp = 1338;
@@ -138,22 +139,14 @@ mod tests {
     assert!(other.update(new_timestamp, new_value.clone()).is_ok());
 
     assert_eq!(other.value, new_value);
-    assert_eq!(other.value(), &new_value);
+    let boxed_value = other.boxed_value().downcast::<String>().unwrap();
+    assert_eq!(*boxed_value, new_value);
     assert_eq!(other.last_change(), new_timestamp);
     assert!(fluent < other);
 
     assert!(other.update(1339, new_value).is_ok());
     assert_eq!(other.last_change(), new_timestamp);
     assert!(fluent < other);
-
-    let mut other = fluent.clone();
-    *other.name_mut() = "new_name".to_string();
-    *other.keys_mut() = vec![42, 23];
-    *other.timestamp_mut() = 1339;
-    *other.value_mut() = "blocked".to_string();
-    *other.last_change_mut() = 1338;
-
-    assert_ne!(other, fluent);
   }
 
   #[test]
@@ -163,7 +156,7 @@ mod tests {
     let timestamp = 1337;
     let value = 3;
 
-    let fluent = InnerFluent::new(name, keys, timestamp, &value);
+    let fluent = InnerFluent::new(name, keys, timestamp, value);
 
     assert_eq!(fluent.name, name.to_string());
     assert_eq!(fluent.name(), name);
@@ -172,11 +165,12 @@ mod tests {
     assert_eq!(fluent.timestamp, timestamp);
     assert_eq!(fluent.timestamp(), timestamp);
     assert_eq!(fluent.value, value);
-    assert_eq!(fluent.value(), &value);
+    let boxed_value = fluent.boxed_value().downcast::<i64>().unwrap();
+    assert_eq!(*boxed_value, value);
     assert_eq!(fluent.last_change, timestamp);
     assert_eq!(fluent.last_change(), timestamp);
 
-    let mut other = InnerFluent::new(name, keys, timestamp, &value);
+    let mut other = InnerFluent::new(name, keys, timestamp, value);
     assert_eq!(fluent, other);
 
     let new_timestamp = 1338;
@@ -186,22 +180,14 @@ mod tests {
     assert!(other.update(new_timestamp, new_value).is_ok());
 
     assert_eq!(other.value, new_value);
-    assert_eq!(other.value(), &new_value);
+    let boxed_value = other.boxed_value().downcast::<i64>().unwrap();
+    assert_eq!(*boxed_value, new_value);
     assert_eq!(other.last_change(), new_timestamp);
     assert!(fluent < other);
 
     assert!(other.update(1339, new_value).is_ok());
     assert_eq!(other.last_change(), new_timestamp);
     assert!(fluent < other);
-
-    let mut other = fluent.clone();
-    *other.name_mut() = "new_name".to_string();
-    *other.keys_mut() = vec![42, 23];
-    *other.timestamp_mut() = 1339;
-    *other.value_mut() = 5;
-    *other.last_change_mut() = 1338;
-
-    assert_ne!(other, fluent);
   }
 
   #[test]
@@ -211,7 +197,7 @@ mod tests {
     let timestamp = 1337;
     let value = 3.14159;
 
-    let fluent = InnerFluent::new(name, keys, timestamp, &value);
+    let fluent = InnerFluent::new(name, keys, timestamp, value);
 
     assert_eq!(fluent.name, name.to_string());
     assert_eq!(fluent.name(), name);
@@ -220,11 +206,12 @@ mod tests {
     assert_eq!(fluent.timestamp, timestamp);
     assert_eq!(fluent.timestamp(), timestamp);
     assert_eq!(fluent.value, value);
-    assert_eq!(fluent.value(), &value);
+    let boxed_value = fluent.boxed_value().downcast::<f64>().unwrap();
+    assert_eq!(*boxed_value, value);
     assert_eq!(fluent.last_change, timestamp);
     assert_eq!(fluent.last_change(), timestamp);
 
-    let mut other = InnerFluent::new(name, keys, timestamp, &value);
+    let mut other = InnerFluent::new(name, keys, timestamp, value);
     assert_eq!(fluent, other);
 
     let new_timestamp = 1338;
@@ -234,22 +221,14 @@ mod tests {
     assert!(other.update(new_timestamp, new_value).is_ok());
 
     assert_eq!(other.value, new_value);
-    assert_eq!(other.value(), &new_value);
+    let boxed_value = other.boxed_value().downcast::<f64>().unwrap();
+    assert_eq!(*boxed_value, new_value);
     assert_eq!(other.last_change(), new_timestamp);
     assert!(fluent < other);
 
     assert!(other.update(1339, new_value).is_ok());
     assert_eq!(other.last_change(), new_timestamp);
     assert!(fluent < other);
-
-    let mut other = fluent.clone();
-    *other.name_mut() = "new_name".to_string();
-    *other.keys_mut() = vec![42, 23];
-    *other.timestamp_mut() = 1339;
-    *other.value_mut() = 5.72;
-    *other.last_change_mut() = 1338;
-
-    assert_ne!(other, fluent);
   }
 
   #[test]
@@ -259,7 +238,7 @@ mod tests {
     let timestamp = 1337;
     let value = true;
 
-    let fluent = InnerFluent::new(name, keys, timestamp, &value);
+    let fluent = InnerFluent::new(name, keys, timestamp, value);
 
     assert_eq!(fluent.name, name.to_string());
     assert_eq!(fluent.name(), name);
@@ -268,11 +247,12 @@ mod tests {
     assert_eq!(fluent.timestamp, timestamp);
     assert_eq!(fluent.timestamp(), timestamp);
     assert_eq!(fluent.value, value);
-    assert_eq!(fluent.value(), &value);
+    let boxed_value = fluent.boxed_value().downcast::<bool>().unwrap();
+    assert_eq!(*boxed_value, value);
     assert_eq!(fluent.last_change, timestamp);
     assert_eq!(fluent.last_change(), timestamp);
 
-    let mut other = InnerFluent::new(name, keys, timestamp, &value);
+    let mut other = InnerFluent::new(name, keys, timestamp, value);
     assert_eq!(fluent, other);
 
     let new_timestamp = 1338;
@@ -282,22 +262,14 @@ mod tests {
     assert!(other.update(new_timestamp, new_value).is_ok());
 
     assert_eq!(other.value, new_value);
-    assert_eq!(other.value(), &new_value);
+    let boxed_value = other.boxed_value().downcast::<bool>().unwrap();
+    assert_eq!(*boxed_value, new_value);
     assert_eq!(other.last_change(), new_timestamp);
     assert!(fluent < other);
 
     assert!(other.update(1339, new_value).is_ok());
     assert_eq!(other.last_change(), new_timestamp);
     assert!(fluent < other);
-
-    let mut other = fluent.clone();
-    *other.name_mut() = "new_name".to_string();
-    *other.keys_mut() = vec![42, 23];
-    *other.timestamp_mut() = 1339;
-    *other.value_mut() = false;
-    *other.last_change_mut() = 1338;
-
-    assert_ne!(other, fluent);
   }
 
   #[test]
@@ -307,7 +279,7 @@ mod tests {
     let timestamp = 1337;
     let value = (3.14159, 2.71828);
 
-    let fluent = InnerFluent::new(name, keys, timestamp, &value);
+    let fluent = InnerFluent::new(name, keys, timestamp, value);
 
     assert_eq!(fluent.name, name.to_string());
     assert_eq!(fluent.name(), name);
@@ -316,11 +288,12 @@ mod tests {
     assert_eq!(fluent.timestamp, timestamp);
     assert_eq!(fluent.timestamp(), timestamp);
     assert_eq!(fluent.value, value);
-    assert_eq!(fluent.value(), &value);
+    let boxed_value = fluent.boxed_value().downcast::<(f64, f64)>().unwrap();
+    assert_eq!(*boxed_value, value);
     assert_eq!(fluent.last_change, timestamp);
     assert_eq!(fluent.last_change(), timestamp);
 
-    let mut other = InnerFluent::new(name, keys, timestamp, &value);
+    let mut other = InnerFluent::new(name, keys, timestamp, value);
     assert_eq!(fluent, other);
 
     let new_timestamp = 1338;
@@ -330,21 +303,13 @@ mod tests {
     assert!(other.update(new_timestamp, new_value).is_ok());
 
     assert_eq!(other.value, new_value);
-    assert_eq!(other.value(), &new_value);
+    let boxed_value = other.boxed_value().downcast::<(f64, f64)>().unwrap();
+    assert_eq!(*boxed_value, new_value);
     assert_eq!(other.last_change(), new_timestamp);
     assert!(fluent < other);
 
     assert!(other.update(1339, new_value).is_ok());
     assert_eq!(other.last_change(), new_timestamp);
     assert!(fluent < other);
-
-    let mut other = fluent.clone();
-    *other.name_mut() = "new_name".to_string();
-    *other.keys_mut() = vec![42, 23];
-    *other.timestamp_mut() = 1339;
-    *other.value_mut() = (5.72, 7.31);
-    *other.last_change_mut() = 1338;
-
-    assert_ne!(other, fluent);
   }
 }

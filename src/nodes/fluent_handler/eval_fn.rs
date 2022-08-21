@@ -8,11 +8,12 @@ use super::Context;
 use crate::fluent::{Fluent, ValueType};
 
 use futures::future::BoxFuture;
+use std::sync::Arc;
 
 
 /// Helper type for the closure objects stored in the [`EvalFn`] struct.
 type FnType<'a> =
-  Box<dyn (Fn(Vec<Fluent>, &Context) -> BoxFuture<'a, Box<dyn ValueType>>)
+  Box<dyn (Fn(Vec<Fluent>, Arc<Context>) -> BoxFuture<'a, Box<dyn ValueType>>)
         + Send
         + Sync>;
 

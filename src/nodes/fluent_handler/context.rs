@@ -8,6 +8,7 @@ use crate::fluent::ValueType;
 
 use derivative::Derivative;
 use eyre::{bail, ensure, Result};
+use std::sync::Arc;
 use tokio_postgres::{types::{FromSql, ToSql},
                      Client,
                      Statement};
@@ -76,5 +77,9 @@ impl Context {
       Some(database) => Ok(database.query_with::<T>(params).await?),
       None => bail!("Context has no database information"),
     }
+  }
+
+  pub fn arc_ptr(self) -> Arc<Self> {
+    Arc::new(self)
   }
 }

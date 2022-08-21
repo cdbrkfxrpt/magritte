@@ -103,7 +103,7 @@ impl FluentTrait for Fluent {
 
 #[cfg(test)]
 mod tests {
-  use super::{Fluent, InnerFluent};
+  use super::{Fluent, FluentTrait, InnerFluent};
 
   use pretty_assertions::assert_eq;
 
@@ -122,7 +122,7 @@ mod tests {
     assert_eq!(any_fluent.name(), name);
 
     let Fluent::Textual(extracted) = any_fluent.clone() else { panic!() };
-    let fluent = InnerFluent::new(name, keys, timestamp, &value);
+    let fluent = InnerFluent::new(name, keys, timestamp, value);
 
     assert_eq!(extracted, fluent);
 
@@ -144,7 +144,7 @@ mod tests {
     assert_eq!(any_fluent.name(), name);
 
     let Fluent::Integer(extracted) = any_fluent.clone() else { panic!() };
-    let fluent = InnerFluent::new(name, keys, timestamp, &value);
+    let fluent = InnerFluent::new(name, keys, timestamp, value);
 
     assert_eq!(extracted, fluent);
 
@@ -166,7 +166,7 @@ mod tests {
     assert_eq!(any_fluent.name(), name);
 
     let Fluent::FloatPt(extracted) = any_fluent.clone() else { panic!() };
-    let fluent = InnerFluent::new(name, keys, timestamp, &value);
+    let fluent = InnerFluent::new(name, keys, timestamp, value);
 
     assert_eq!(extracted, fluent);
 
@@ -188,7 +188,7 @@ mod tests {
     assert_eq!(any_fluent.name(), name);
 
     let Fluent::Boolean(extracted) = any_fluent.clone() else { panic!() };
-    let fluent = InnerFluent::new(name, keys, timestamp, &value);
+    let fluent = InnerFluent::new(name, keys, timestamp, value);
 
     assert_eq!(extracted, fluent);
 
@@ -210,7 +210,7 @@ mod tests {
     assert_eq!(any_fluent.name(), name);
 
     let Fluent::PlanePt(extracted) = any_fluent.clone() else { panic!() };
-    let fluent = InnerFluent::new(name, keys, timestamp, &value);
+    let fluent = InnerFluent::new(name, keys, timestamp, value);
 
     assert_eq!(extracted, fluent);
 

@@ -15,7 +15,7 @@ use crate::{fluent::{Fluent, FluentTrait, ValueType},
 use clap::Parser;
 use eyre::Result;
 use futures::future::FutureExt;
-// use indoc::indoc;
+use indoc::indoc;
 use serde::Deserialize;
 use std::fs;
 use tracing::info;
@@ -131,8 +131,8 @@ impl AppCore {
 #[cfg(test)]
 mod tests {
   use super::AppCore;
-  use crate::{fluent::Fluent,
-              nodes::{Node, NodeRx, StructuralNode},
+  use crate::{fluent::FluentTrait,
+              nodes::{Node, NodeRx},
               stringvec};
 
   use pretty_assertions::assert_eq;
@@ -153,17 +153,15 @@ mod tests {
 
     let database_client = app_core.database.connect().await.unwrap();
     let runner = tokio::spawn(async move {
-      source.run(database_client).await.unwrap();
+      source.run(Some(database_client)).await.unwrap();
     });
 
-    let Fluent::FloatPt(fluent) = rx.recv().await.unwrap() else {
-      panic!()
-    };
+    let fluent = rx.recv().await.unwrap();
 
     assert_eq!(fluent.name(), "lon");
     assert_eq!(fluent.keys(), &[245257000]);
     assert_eq!(fluent.timestamp(), 1443650402);
-    assert_eq!(fluent.value(), &-4.4657183);
+    assert_eq!(fluent.value::<f64>(), -4.4657183);
     assert_eq!(fluent.last_change(), 1443650402);
 
     runner.abort();
@@ -178,13 +176,6 @@ mod tests {
 
     assert_eq!(source.publishes(), stringvec!["lon", "lat", "speed"]);
     assert_eq!(source.subscribes_to(), Vec::<String>::new());
-    assert!(source.run(database_client).await.is_err());
-  }
-
-  #[tokio::test]
-  async fn app_core_test() {
-    let mut app_core = AppCore::init().unwrap();
-
-    assert!(app_core.prepare_run().await.is_ok());
+    assert!(source.run(Some(database_client)).await.is_err());
   }
 }

@@ -54,7 +54,7 @@ impl<'a> FluentHandler<'a> {
   /// [`EvalFn`] (which is a wrapper struct for a closure).
   pub async fn new(def: FluentHandlerDefinition<'a>,
                    database_client: Client)
-                   -> Result<FluentHandler<'a>> {
+                   -> Result<FluentHandler> {
     let name = def.name.to_owned();
     let dependencies = def.dependencies
                           .iter()
@@ -85,10 +85,9 @@ impl<'a> FluentHandler<'a> {
     };
 
     let eval_fn = self.eval_fn.into_inner();
+    let context = self.context.arc_ptr();
 
     while let Some((_fluent_name, Ok(any_fluent))) = node_rx.next().await {
-      // info!("FluentHandler '{}' received: {:?}", self.name, any_fluent);
-
       let keys = any_fluent.keys().to_vec();
       let timestamp = any_fluent.timestamp();
 
@@ -132,7 +131,7 @@ impl<'a> FluentHandler<'a> {
           });
 
       // we've got all the dependencies now - feed them into the eval_fn
-      let value = eval_fn(deps, &self.context).await;
+      let value = eval_fn(deps, context.clone()).await;
 
       node_tx.send(Fluent::new(&self.name, &keys, timestamp, value))?;
     }
