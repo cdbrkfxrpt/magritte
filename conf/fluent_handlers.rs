@@ -1,6 +1,6 @@
 [
   FluentHandlerDefinition {
-    name: "high_speed_near_coast",
+    fluent_name: "high_speed_near_coast",
     dependencies: &["high_speed", "near_coast"],
     database_query: None,
     eval_fn: EvalFn::specify(Box::new(
@@ -13,7 +13,7 @@
     ))
   },
   FluentHandlerDefinition {
-    name: "high_speed",
+    fluent_name: "high_speed",
     dependencies: &["speed"],
     database_query: None,
     eval_fn: EvalFn::specify(Box::new(
@@ -32,7 +32,7 @@
     ))
   },
   FluentHandlerDefinition {
-    name: "near_coast",
+    fluent_name: "near_coast",
     dependencies: &["distance_from_coast"],
     database_query: None,
     eval_fn: EvalFn::specify(Box::new(
@@ -43,7 +43,7 @@
     ))
   },
   FluentHandlerDefinition {
-    name: "distance_from_coast",
+    fluent_name: "distance_from_coast",
     dependencies: &["lon", "lat"],
     database_query: Some(indoc! {r#"
       -- requires two input values: [lon, lat]

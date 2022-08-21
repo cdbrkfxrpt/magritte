@@ -20,7 +20,7 @@ use tokio_stream::StreamExt;
 #[derivative(Debug)]
 /// Allows for ergonomic definition of [`FluentHandler`]s.
 pub struct FluentHandlerDefinition<'a> {
-  pub name:           &'a str,
+  pub fluent_name:    &'a str,
   pub dependencies:   &'a [&'a str],
   pub database_query: Option<&'a str>,
   #[derivative(Debug = "ignore")]
@@ -35,7 +35,7 @@ pub struct FluentHandlerDefinition<'a> {
 /// to produce an output fluent, publishing this [`Fluent`] to the
 /// [`Broker`](crate::app_core::Broker).
 pub struct FluentHandler<'a> {
-  name:         String,
+  fluent_name:  String,
   dependencies: Vec<String>,
   context:      Context,
   #[derivative(Debug = "ignore")]
@@ -53,7 +53,7 @@ impl<'a> FluentHandler<'a> {
   pub async fn new(def: FluentHandlerDefinition<'a>,
                    database_client: Client)
                    -> Result<FluentHandler> {
-    let name = def.name.to_owned();
+    let fluent_name = def.fluent_name.to_owned();
     let dependencies = def.dependencies
                           .iter()
                           .map(|e| e.to_string())
@@ -63,7 +63,7 @@ impl<'a> FluentHandler<'a> {
     let deps_buffer = BTreeMap::new();
     let node_ch = None;
 
-    Ok(Self { name,
+    Ok(Self { fluent_name,
               dependencies,
               context,
               eval_fn,
@@ -79,7 +79,8 @@ impl<'a> FluentHandler<'a> {
   pub async fn run(mut self) -> Result<()> {
     let (node_tx, node_rx) = match &mut self.node_ch {
       Some((node_tx, node_rx)) => (node_tx, node_rx),
-      None => bail!("FluentHandler '{}' not initialized, aborting", self.name),
+      None => bail!("FluentHandler '{}' not initialized, aborting",
+                    self.fluent_name),
     };
 
     let eval_fn = self.eval_fn.into_inner();
@@ -112,7 +113,7 @@ impl<'a> FluentHandler<'a> {
         None => continue,
       };
       // and send the resulting value out to the broker
-      node_tx.send(Fluent::new(&self.name, &keys, timestamp, value))?;
+      node_tx.send(Fluent::new(&self.fluent_name, &keys, timestamp, value))?;
     }
     Ok(())
   }
@@ -121,7 +122,7 @@ impl<'a> FluentHandler<'a> {
 #[async_trait]
 impl<'a> Node for FluentHandler<'a> {
   fn publishes(&self) -> Vec<String> {
-    vec![self.name.clone()]
+    vec![self.fluent_name.clone()]
   }
 
   fn subscribes_to(&self) -> Vec<String> {
