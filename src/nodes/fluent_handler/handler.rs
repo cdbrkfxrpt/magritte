@@ -5,8 +5,7 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use super::{Context, EvalFn};
-use crate::{app_core::util::unordered_congruent,
-            fluent::{Fluent, FluentTrait, Timestamp},
+use crate::{fluent::{Fluent, FluentTrait, Timestamp},
             nodes::{Node, NodeRx, NodeTx}};
 
 use async_trait::async_trait;
@@ -99,40 +98,18 @@ impl<'a> FluentHandler<'a> {
       }
 
       // deps: dependecies filtered by key as Vec
-      let mut deps =
-        self.deps_buffer[&timestamp].iter()
-                                    .filter_map(|f| {
-                                      (f.keys() == keys).as_some(f.clone())
-                                    })
-                                    .collect::<Vec<Fluent>>();
-
-      let dep_names = deps.iter()
-                          .map(|k| k.name().to_string())
-                          .collect::<Vec<_>>();
-
-      if self.dependencies.len() != dep_names.len()
-         || !unordered_congruent(&self.dependencies, &dep_names)
-      {
+      let mut deps = util::get_deps(&self.deps_buffer, timestamp, &keys);
+      if util::not_matching(&util::get_names(&deps), &self.dependencies) {
         continue;
       }
 
       // now that we've checked that deps contains all elements required by
       // self.dependencies, we can safely unwrap the position calls here:
-      deps.sort_by(|lhs, rhs| {
-            let lhs_pos = self.dependencies
-                              .iter()
-                              .position(|name| name == lhs.name())
-                              .unwrap();
-            let rhs_pos = self.dependencies
-                              .iter()
-                              .position(|name| name == rhs.name())
-                              .unwrap();
-            lhs_pos.cmp(&rhs_pos)
-          });
+      util::sort_fluents_by_given_order(&mut deps, &self.dependencies);
 
       // we've got all the dependencies now - feed them into the eval_fn
       let value = eval_fn(deps, context.clone()).await;
-
+      // and send the resulting value out to the broker
       node_tx.send(Fluent::new(&self.name, &keys, timestamp, value))?;
     }
     Ok(())
@@ -151,5 +128,41 @@ impl<'a> Node for FluentHandler<'a> {
 
   fn initialize(&mut self, node_tx: NodeTx, node_rx: NodeRx) {
     self.node_ch = Some((node_tx, node_rx));
+  }
+}
+
+mod util {
+  use crate::fluent::{Fluent, FluentTrait, Key, Timestamp};
+
+  use boolinator::Boolinator;
+  use std::collections::BTreeMap;
+
+
+  pub fn get_deps(buffer: &BTreeMap<Timestamp, Vec<Fluent>>,
+                  timestamp: Timestamp,
+                  keys: &Vec<Key>)
+                  -> Vec<Fluent> {
+    buffer[&timestamp].iter()
+                      .filter_map(|f| (f.keys() == keys).as_some(f.clone()))
+                      .collect()
+  }
+
+  pub fn get_names(fluents: &Vec<Fluent>) -> Vec<String> {
+    fluents.iter().map(|f| f.name().to_string()).collect()
+  }
+
+  pub fn not_matching<T: PartialEq>(lhs: &Vec<T>, rhs: &Vec<T>) -> bool {
+    lhs.len() != rhs.len() || !lhs.iter().all(|e| rhs.contains(&e))
+  }
+
+  pub fn sort_fluents_by_given_order(fluents: &mut Vec<Fluent>,
+                                     order: &Vec<String>) {
+    fluents.sort_by(|lhs, rhs| {
+             let lhs_pos =
+               order.iter().position(|name| name == lhs.name()).unwrap();
+             let rhs_pos =
+               order.iter().position(|name| name == rhs.name()).unwrap();
+             lhs_pos.cmp(&rhs_pos)
+           });
   }
 }

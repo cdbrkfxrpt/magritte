@@ -16,10 +16,10 @@ dbname = "doi105281zenodo1167595"
 
 
 [[sinks]]
-subscribes_to = ["moving", "high_speed"]
+subscribes_to = ["high_speed", "near_coast", "distance_from_coast"]
 
 [[sinks]]
-subscribes_to = ["distance_from_coast"]
+subscribes_to = ["high_speed_near_coast"]
 
 
 [source]

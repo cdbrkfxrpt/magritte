@@ -1,18 +1,19 @@
 [
-  // (
-  //   "location",
-  //   vec!["lon", "lat"],
-  //   false, // requires database client
-  //   EvalFn::specify(Box::new(
-  //     |fluents| {
-  //       let (lon, lat) = match fluents.as_slice() {
-  //         [Fluent::FloatPt(lon), Fluent::FloatPt(lat)] => (lon, lat),
-  //         _ => panic!(),
-  //       };
-  //       Box::new((lon.value().to_owned(), lat.value().to_owned()))
-  //     }
-  //   ))
-  // ),
+  FluentHandlerDefinition {
+    name: "high_speed_near_coast",
+    dependencies: &["high_speed", "near_coast"],
+    database_query: None,
+    eval_fn: EvalFn::specify(Box::new(
+      |fluents, _| async move {
+        // unwrap here is safe:
+        // we are guaranteed to have what we put in the dependencies list
+        let high_speed = fluents.get(0).unwrap().value::<bool>();
+        let near_coast = fluents.get(1).unwrap().value::<bool>();
+
+        Box::new(high_speed && near_coast) as Box<dyn ValueType>
+      }.boxed()
+    ))
+  },
   FluentHandlerDefinition {
     name: "high_speed",
     dependencies: &["speed"],
@@ -21,33 +22,29 @@
       |fluents, _| async move {
         // unwrap here is safe:
         // we are guaranteed to have what we put in the dependencies list
-        let speed = fluents.get(0).unwrap();
-
+        let speed_fluent = fluents.get(0).unwrap();
         // optional check - fluents arrive in order given by dependency list
-        if speed.name() != "speed" || !matches!(speed, Fluent::FloatPt(_)) {
+        if speed_fluent.name() != "speed"
+           || !matches!(speed_fluent, Fluent::FloatPt(_)) {
           panic!();
         }
 
-        Box::new(speed.value::<f64>() >= 5.0) as Box<dyn ValueType>
+        let speed = speed_fluent.value::<f64>();
+        Box::new(speed >= 5.0) as Box<dyn ValueType>
       }.boxed()
     ))
   },
   FluentHandlerDefinition {
-    name: "moving",
-    dependencies: &["speed"],
+    name: "near_coast",
+    dependencies: &["distance_from_coast"],
     database_query: None,
     eval_fn: EvalFn::specify(Box::new(
       |fluents, _| async move {
         // unwrap here is safe:
         // we are guaranteed to have what we put in the dependencies list
-        let speed = fluents.get(0).unwrap();
+        let distance_from_coast = fluents.get(0).unwrap().value::<f64>();
 
-        // optional check - fluents arrive in order given by dependency list
-        if speed.name() != "speed" || !matches!(speed, Fluent::FloatPt(_)) {
-          panic!();
-        }
-
-        Box::new(speed.value::<f64>() >= 0.2) as Box<dyn ValueType>
+        Box::new(distance_from_coast < 300.0) as Box<dyn ValueType>
       }.boxed()
     ))
   },
@@ -77,5 +74,5 @@
         Box::new(distance_from_coast) as Box<dyn ValueType>
       }.boxed()
     ))
-  }
+  },
 ]

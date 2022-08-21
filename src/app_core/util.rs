@@ -30,12 +30,6 @@ macro_rules! boxvec {
   [$( $x:expr ),* $(,)?] => (vec![$( Box::new($x) ),*]);
 }
 
-
-pub fn unordered_congruent<T: PartialEq>(lhs: &Vec<T>, rhs: &Vec<T>) -> bool {
-  lhs.iter().all(|e| rhs.contains(&e))
-}
-
-
 // pub fn round_f32(n: f32, d: i64) -> f32 {
 //   (n * (d * 10) as f32).round() / (d * 10) as f32
 // }
