@@ -7,11 +7,13 @@
 use crate::fluent::ValueType;
 
 use derivative::Derivative;
-use eyre::{bail, ensure, Result};
-use std::sync::Arc;
+use eyre::Result;
+use std::{sync::Arc, time::Duration};
+use tokio::time;
 use tokio_postgres::{types::{FromSql, ToSql},
                      Client,
                      Statement};
+use tracing::info;
 
 
 #[derive(Derivative)]
@@ -34,14 +36,25 @@ impl DatabaseContext {
   /// return exactly one value in exactly one row for this to return `Ok(T)`.
   pub async fn query_with<T>(&self,
                              params: &[&(dyn ToSql + Sync)])
-                             -> Result<T>
+                             -> Option<T>
     where T: ValueType + for<'a> FromSql<'a>
   {
-    let row = self.client.query_one(&self.statement, params).await?;
-    ensure!(row.len() == 1,
-            "database query must return exactly one value");
+    let query_future = self.client.query_one(&self.statement, params);
+    let row =
+      match time::timeout(Duration::from_millis(60), query_future).await {
+        Ok(query_result) => query_result.ok()?,
+        Err(_) => {
+          info!("database query timed out");
+          return None;
+        }
+      };
 
-    Ok(row.get::<usize, T>(0))
+    if row.len() != 1 {
+      info!("database query returned more than one value");
+      return None;
+    }
+
+    Some(row.get::<usize, T>(0))
   }
 }
 
@@ -70,12 +83,12 @@ impl Context {
   /// template generated into a query using the given params.
   pub async fn database_query<T>(&self,
                                  params: &[&(dyn ToSql + Sync)])
-                                 -> Result<T>
+                                 -> Option<T>
     where T: ValueType + for<'a> FromSql<'a>
   {
     match &self.database {
-      Some(database) => Ok(database.query_with::<T>(params).await?),
-      None => bail!("Context has no database information"),
+      Some(database) => Some(database.query_with::<T>(params).await?),
+      None => None,
     }
   }
 

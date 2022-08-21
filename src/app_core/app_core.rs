@@ -126,6 +126,16 @@ impl AppCore {
 }
 
 
+mod usr {
+  use super::ValueType;
+
+
+  pub fn return_value<T: ValueType>(value: T) -> Option<Box<dyn ValueType>> {
+    Some(Box::new(value) as Box<dyn ValueType>)
+  }
+}
+
+
 // fin --------------------------------------------------------------------- //
 
 #[cfg(test)]

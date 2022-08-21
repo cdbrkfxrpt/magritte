@@ -12,10 +12,11 @@ use std::sync::Arc;
 
 
 /// Helper type for the closure objects stored in the [`EvalFn`] struct.
-type FnType<'a> =
-  Box<dyn (Fn(Vec<Fluent>, Arc<Context>) -> BoxFuture<'a, Box<dyn ValueType>>)
-        + Send
-        + Sync>;
+type FnType<'a> = Box<dyn (Fn(Vec<Fluent>,
+                           Arc<Context>)
+                           -> BoxFuture<'a, Option<Box<dyn ValueType>>>)
+                        + Send
+                        + Sync>;
 
 
 /// Wrapper struct for closures which are used to evaluate fluents.

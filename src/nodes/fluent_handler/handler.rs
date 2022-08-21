@@ -107,7 +107,10 @@ impl<'a> FluentHandler<'a> {
       util::sort_fluents_by_given_order(&mut deps, &self.dependencies);
 
       // we've got all the dependencies now - feed them into the eval_fn
-      let value = eval_fn(deps, context.clone()).await;
+      let value = match eval_fn(deps, context.clone()).await {
+        Some(value) => value,
+        None => continue,
+      };
       // and send the resulting value out to the broker
       node_tx.send(Fluent::new(&self.name, &keys, timestamp, value))?;
     }
