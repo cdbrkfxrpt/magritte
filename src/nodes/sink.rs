@@ -18,6 +18,7 @@ use tracing::info;
 /// Receives [`Fluent`]s from the [`Broker`](crate::app_core::Broker)
 /// service and writes them to the PostgreSQL database.
 pub struct Sink {
+  debug:         bool,
   subscribes_to: Vec<String>,
   #[serde(skip)]
   node_rx:       Option<NodeRx>,
@@ -39,7 +40,11 @@ impl Sink {
     let sql_raw = include_str!("../sql/sink.sql");
 
     while let Some((_, Ok(fluent))) = node_rx.next().await {
-      info!("Sink received: {:?}", fluent);
+      if self.debug {
+        info!("Sink received: {:?}", fluent);
+        continue;
+      }
+
       if !matches!(fluent, Fluent::Boolean(_)) {
         continue;
         // bail!("Sink received non-boolean fluent, aborting")
@@ -90,7 +95,8 @@ mod tests {
   use pretty_assertions::assert_eq;
 
   fn sink_init() -> Sink {
-    Sink { subscribes_to: stringvec!["highSpeedNearCoast", "rendezVous"],
+    Sink { debug:         true,
+           subscribes_to: stringvec!["highSpeedNearCoast", "rendezVous"],
            node_rx:       None, }
   }
 

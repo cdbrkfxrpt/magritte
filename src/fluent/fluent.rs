@@ -11,7 +11,8 @@ use super::{FluentTrait, InnerFluent, Key, Timestamp, ValueType};
 /// Enables sending [`Fluent`]s through channels.
 pub enum Fluent {
   Textual(InnerFluent<String>),
-  Integer(InnerFluent<i64>),
+  Integer(InnerFluent<i32>),
+  LongInt(InnerFluent<i64>),
   FloatPt(InnerFluent<f64>),
   Boolean(InnerFluent<bool>),
   PlanePt(InnerFluent<(f64, f64)>),
@@ -33,6 +34,7 @@ impl Fluent {
     let boxed_value = match self {
       Self::Textual(fluent) => fluent.boxed_value(),
       Self::Integer(fluent) => fluent.boxed_value(),
+      Self::LongInt(fluent) => fluent.boxed_value(),
       Self::FloatPt(fluent) => fluent.boxed_value(),
       Self::Boolean(fluent) => fluent.boxed_value(),
       Self::PlanePt(fluent) => fluent.boxed_value(),
@@ -49,6 +51,7 @@ impl FluentTrait for Fluent {
     match self {
       Self::Textual(fluent) => fluent.name(),
       Self::Integer(fluent) => fluent.name(),
+      Self::LongInt(fluent) => fluent.name(),
       Self::FloatPt(fluent) => fluent.name(),
       Self::Boolean(fluent) => fluent.name(),
       Self::PlanePt(fluent) => fluent.name(),
@@ -60,6 +63,7 @@ impl FluentTrait for Fluent {
     match self {
       Self::Textual(fluent) => fluent.keys(),
       Self::Integer(fluent) => fluent.keys(),
+      Self::LongInt(fluent) => fluent.keys(),
       Self::FloatPt(fluent) => fluent.keys(),
       Self::Boolean(fluent) => fluent.keys(),
       Self::PlanePt(fluent) => fluent.keys(),
@@ -71,6 +75,7 @@ impl FluentTrait for Fluent {
     match self {
       Self::Textual(fluent) => fluent.timestamp(),
       Self::Integer(fluent) => fluent.timestamp(),
+      Self::LongInt(fluent) => fluent.timestamp(),
       Self::FloatPt(fluent) => fluent.timestamp(),
       Self::Boolean(fluent) => fluent.timestamp(),
       Self::PlanePt(fluent) => fluent.timestamp(),
@@ -81,6 +86,7 @@ impl FluentTrait for Fluent {
     match self {
       Self::Textual(fluent) => fluent.boxed_value(),
       Self::Integer(fluent) => fluent.boxed_value(),
+      Self::LongInt(fluent) => fluent.boxed_value(),
       Self::FloatPt(fluent) => fluent.boxed_value(),
       Self::Boolean(fluent) => fluent.boxed_value(),
       Self::PlanePt(fluent) => fluent.boxed_value(),
@@ -92,6 +98,7 @@ impl FluentTrait for Fluent {
     match self {
       Self::Textual(fluent) => fluent.last_change(),
       Self::Integer(fluent) => fluent.last_change(),
+      Self::LongInt(fluent) => fluent.last_change(),
       Self::FloatPt(fluent) => fluent.last_change(),
       Self::Boolean(fluent) => fluent.last_change(),
       Self::PlanePt(fluent) => fluent.last_change(),

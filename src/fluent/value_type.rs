@@ -18,6 +18,7 @@ pub trait ValueType: fmt::Debug + DowncastSync {
   ///
   /// Implementations are provided for:
   /// - `String`
+  /// - `i32`
   /// - `i64`
   /// - `f64`
   /// - `bool`
@@ -33,9 +34,15 @@ impl ValueType for String {
   }
 }
 
-impl ValueType for i64 {
+impl ValueType for i32 {
   fn to_fluent(&self, name: &str, keys: &[Key], ts: Timestamp) -> Fluent {
     Fluent::Integer(InnerFluent::new(name, keys, ts, self.to_owned()))
+  }
+}
+
+impl ValueType for i64 {
+  fn to_fluent(&self, name: &str, keys: &[Key], ts: Timestamp) -> Fluent {
+    Fluent::LongInt(InnerFluent::new(name, keys, ts, self.to_owned()))
   }
 }
 

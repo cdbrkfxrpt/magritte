@@ -14,12 +14,25 @@ user = "postgres"
 password = "barbershop"
 dbname = "doi105281zenodo1167595"
 
+# [[sinks]]
+# subscribes_to = ["lon", "lat"]
 
 [[sinks]]
-subscribes_to = ["high_speed", "near_coast", "distance_from_coast"]
+debug = true
+subscribes_to = [
+  "high_speed_near_coast",
+  "high_speed",
+  "near_coast",
+  "distance_from_coast"
+]
 
 [[sinks]]
-subscribes_to = ["high_speed_near_coast"]
+debug = true
+subscribes_to = [
+  "near_coast",
+  "near_ports",
+  "is_tug_or_pilot"
+]
 
 
 [source]
