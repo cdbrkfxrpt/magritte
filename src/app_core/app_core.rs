@@ -19,16 +19,17 @@ use futures::future::FutureExt;
 use indoc::indoc;
 use serde::Deserialize;
 use std::fs;
-use tracing::info;
+use tracing::{debug, info};
 
 
 #[derive(Debug, Deserialize)]
 /// Deserialized from config file. Initializes core elements of `magritte`.
 pub struct AppCore {
-  database: Database,
-  broker:   Broker,
-  source:   Source,
-  sinks:    Vec<Sink>,
+  database:       Database,
+  broker:         Broker,
+  source:         Source,
+  sinks:          Vec<Sink>,
+  buffer_timeout: usize,
 }
 
 impl AppCore {
@@ -56,17 +57,18 @@ impl AppCore {
     let Self { database,
                mut broker,
                mut source,
-               mut sinks, } = self;
+               mut sinks,
+               buffer_timeout, } = self;
 
     // run prep
     let client = database.connect().await?;
 
     let sql_raw = include_str!("../sql/prepare_run.sql");
-    info!("executing SYSTEM run preparation SQL:\n\n{}", sql_raw);
+    debug!("executing SYSTEM run preparation SQL:\n\n{}", sql_raw);
     client.batch_execute(sql_raw).await?;
 
     let sql_raw = include_str!("../../conf/prepare_run.sql");
-    info!("executing USER run preparation SQL:\n\n{}", sql_raw);
+    debug!("executing USER run preparation SQL:\n\n{}", sql_raw);
     client.batch_execute(sql_raw).await?;
 
     broker.register(&mut source);
@@ -77,7 +79,9 @@ impl AppCore {
     // initialize and run nodes
     let mut node_tasks = Vec::new();
     for def in include!("../../conf/fluent_handlers.rs") {
-      let mut node = FluentHandler::new(def, database.connect().await?).await?;
+      let mut node = FluentHandler::new(def,
+                                        buffer_timeout,
+                                        database.connect().await?).await?;
       broker.register(&mut node);
 
       let task = tokio::spawn(async move {

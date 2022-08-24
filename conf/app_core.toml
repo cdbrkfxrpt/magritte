@@ -4,6 +4,9 @@
 # received a copy of this license along with the source code. If that is not
 # the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
+buffer_timeout = 3600
+
+
 [broker]
 broadcast_capacity = 256
 
@@ -18,13 +21,13 @@ dbname = "doi105281zenodo1167595"
 # debug = true
 # subscribes_to = ["lon", "lat", "location"]
 
-# [[sinks]]
-# debug = true
-# subscribes_to = [
-#   "high_speed",
-#   "near_coast",
-#   "high_speed_near_coast"
-# ]
+[[sinks]]
+debug = true
+subscribes_to = [
+  "high_speed",
+  "near_coast",
+  "high_speed_near_coast"
+]
 
 [[sinks]]
 debug = true
@@ -33,14 +36,14 @@ subscribes_to = [
   "distance"
 ]
 
-# [[sinks]]
-# debug = true
-# subscribes_to = [
-#   "stopped_or_low_speed",
-#   "near_coast",
-#   "near_ports",
-#   "is_tug_or_pilot"
-# ]
+[[sinks]]
+debug = true
+subscribes_to = [
+  "stopped_or_low_speed",
+  "near_coast",
+  "near_ports",
+  "is_tug_or_pilot"
+]
 
 [[sinks]]
 debug = true

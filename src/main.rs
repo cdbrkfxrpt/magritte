@@ -34,7 +34,7 @@ use app_core::AppCore;
 
 use eyre::Result;
 use tokio::{signal, sync::mpsc};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 
@@ -71,7 +71,7 @@ async fn main() -> Result<()> {
 
   info!("reading command line arguments and config file to init app...");
   let app_core = AppCore::init()?;
-  info!("{:#?}", app_core);
+  debug!("{:#?}", app_core);
 
 
   info!("setting up and running the application...");

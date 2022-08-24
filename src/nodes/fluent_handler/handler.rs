@@ -14,7 +14,7 @@ use eyre::{bail, Result};
 use std::collections::BTreeMap;
 use tokio_postgres::Client;
 use tokio_stream::StreamExt;
-use tracing::info;
+// use tracing::info;
 
 
 #[derive(Debug)]
@@ -34,7 +34,6 @@ pub struct FluentHandlerDefinition<'a> {
   pub database_query: Option<&'a str>,
   #[derivative(Debug = "ignore")]
   pub eval_fn:        EvalFn<'a>,
-  pub prune_after:    usize,
 }
 
 
@@ -52,9 +51,8 @@ pub struct FluentHandler<'a> {
   #[derivative(Debug = "ignore")]
   eval_fn:        EvalFn<'a>,
   deps_buffer:    BTreeMap<Vec<Key>, Vec<Fluent>>,
-  prune_after:    usize,
+  buffer_timeout: usize,
   history:        Vec<Fluent>,
-  // window:                   Option<usize>,
   node_ch:        Option<(NodeTx, NodeRx)>,
 }
 
@@ -63,6 +61,7 @@ impl<'a> FluentHandler<'a> {
   /// [`Fluent`] it handles, as well as an evaluation function of type
   /// [`EvalFn`] (which is a wrapper struct for a closure).
   pub async fn new(def: FluentHandlerDefinition<'a>,
+                   buffer_timeout: usize,
                    database_client: Client)
                    -> Result<FluentHandler> {
     let fluent_name = def.fluent_name.to_owned();
@@ -74,7 +73,6 @@ impl<'a> FluentHandler<'a> {
     let context = Context::new(database_client, def.database_query).await?;
     let eval_fn = def.eval_fn;
     let deps_buffer = BTreeMap::new();
-    let prune_after = def.prune_after;
     let history = Vec::new();
     let node_ch = None;
 
@@ -84,7 +82,7 @@ impl<'a> FluentHandler<'a> {
               context,
               eval_fn,
               deps_buffer,
-              prune_after,
+              buffer_timeout,
               history,
               node_ch })
   }
@@ -128,13 +126,18 @@ impl<'a> FluentHandler<'a> {
         }
       }
 
-      //
-      let dependency_sets = util::dependency_sets(&self.deps_buffer,
+      // before we do anything, we prune the buffer of old fluents
+      util::prune_buffer(&mut self.deps_buffer,
+                         timestamp,
+                         self.buffer_timeout);
+
+      // assemble dependency sets to run through
+      let dependency_sets = util::dependency_sets(&mut self.deps_buffer,
                                                   &keys,
                                                   &self.dependencies,
                                                   &self.key_dependency);
-      info!("{:24} dependency sets: {:?}",
-            self.fluent_name, dependency_sets);
+      // info!("{:24} dependency sets: {:?}",
+      //       self.fluent_name, dependency_sets);
       // continue;
 
       for (dep_keys, dependencies) in dependency_sets.into_iter() {
@@ -181,59 +184,28 @@ impl<'a> Node for FluentHandler<'a> {
 }
 
 mod util {
-  use crate::{fluent::{Fluent, FluentTrait, Key},
+  use crate::{fluent::{Fluent, FluentTrait, Key, Timestamp},
               nodes::fluent_handler::KeyDependency};
 
-  use array_tool::vec::{Intersect, Union, Uniq};
-  use boolinator::Boolinator;
+  use array_tool::vec::{Union, Uniq};
   use itertools::Itertools;
-  use std::collections::{BTreeMap, BTreeSet};
-  // use tracing::info;
+  use std::collections::BTreeMap;
 
-
-  /// Checks if two key sets overlap, i.e. have at least one common element.
-  pub fn have_overlap(lhs: &Vec<Key>, rhs: &Vec<Key>) -> bool {
-    !lhs.intersect(rhs.clone()).is_empty()
-  }
 
   /// Merges two key lists, removing duplicates.
-  pub fn merge<T>(lhs: &Vec<T>, rhs: &Vec<T>) -> Vec<T>
+  fn merge<T>(lhs: &Vec<T>, rhs: &Vec<T>) -> Vec<T>
     where T: PartialEq + Ord + Clone {
     lhs.union(rhs.clone()).into_iter().sorted().collect()
   }
 
-  /// Merges two key lists if they have common elements, removing duplicates.
-  pub fn merge_if_overlap(lhs: &Vec<Key>, rhs: &Vec<Key>) -> Option<Vec<Key>> {
-    if !have_overlap(lhs, rhs) {
-      return None;
-    }
-    Some(merge(lhs, rhs))
-  }
-
-  /// Finds the longest sets containing a given smaller set of keys.
-  pub fn key_matches(key_sets: &Vec<Vec<Key>>,
-                     keys: &Vec<Key>)
-                     -> Vec<Vec<Key>> {
-    let mut key_matches = BTreeSet::new();
-    let mut max_len = 0;
-    for key_set in key_sets.iter() {
-      if let Some(key_match) = merge_if_overlap(key_set, keys) {
-        max_len = key_match.len();
-        key_matches.insert(key_match);
-      }
-    }
-    key_matches.retain(|m| m.len() == max_len);
-    key_matches.into_iter().collect()
-  }
-
   /// Checks if all [`Fluent`]s in collection have the same timestamp.
-  pub fn same_timestamps(fluents: &Vec<Fluent>) -> bool {
+  fn same_timestamps(fluents: &Vec<Fluent>) -> bool {
     fluents.windows(2)
            .all(|w| w[0].timestamp() == w[1].timestamp())
   }
 
   /// Get names of all [`Fluent`]s in collection.
-  pub fn fluent_names(fluents: &Vec<Fluent>) -> Vec<String> {
+  fn fluent_names(fluents: &Vec<Fluent>) -> Vec<String> {
     fluents.iter().map(|f| f.name().to_string()).collect()
   }
 
@@ -263,53 +235,26 @@ mod util {
            });
   }
 
-  /// Other stuff
-  pub fn dependency_sets(buffer: &BTreeMap<Vec<Key>, Vec<Fluent>>,
+  /// Assort the set of dependencies from the buffer.
+  pub fn dependency_sets(buffer: &mut BTreeMap<Vec<Key>, Vec<Fluent>>,
                          keys: &Vec<Key>,
                          dependencies: &Vec<String>,
                          key_dependency: &KeyDependency)
                          -> BTreeMap<Vec<Key>, Vec<Fluent>> {
     let mut dependency_sets = BTreeMap::new();
+    let mut key_dependencies = buffer[keys].clone();
     match key_dependency {
       KeyDependency::Concurrent => {
-        let key_sets = buffer.keys().cloned().collect();
-        for key_match in key_matches(&key_sets, keys) {
-          // iterate through buffer, returning those fluent sets the keys of
-          // which have an overlap with the key match (so a fluent with the key
-          // [23] is collected same as one with the key [23, 42] if the key
-          // match is [23, 42]) and collecting them into a `Vec`
-          #[rustfmt::skip]
-          let mut key_deps =
-            buffer.iter()
-                  .filter_map(|(keys, fluents)| {
-                    (
-                      have_overlap(keys, &key_match)
-                      && same_timestamps(fluents)
-                    ).as_some(fluents.clone())
-                  })
-                  .flatten()
-                  .collect::<Vec<_>>();
-
-          // check if all dependencies are present and if so, sort them in the
-          // same order as the dependency list and insert them into the
-          // dependency set map
-          if equal(&fluent_names(&key_deps).unique(), dependencies) {
-            sort_by_given_order(&mut key_deps, dependencies);
-            dependency_sets.insert(fluent_keys(&key_deps), key_deps);
-          }
+        if equal(&fluent_names(&key_dependencies).unique(), dependencies)
+           && same_timestamps(&key_dependencies)
+        {
+          sort_by_given_order(&mut key_dependencies, dependencies);
+          dependency_sets.insert(fluent_keys(&key_dependencies),
+                                 key_dependencies);
+          buffer.remove(keys);
         }
-
-        // deps: dependencies filtered by key as Vec
-        // if !matching(&get_names(&deps), &self.dependencies) {
-        //   continue;
-        // }
-        //
-        // now that we've checked that deps contains all elements required by
-        // self.dependencies, we can safely unwrap the position calls here:
-        // util::sort_fluents_by_given_order(&mut deps, &self.dependencies);
       }
       KeyDependency::NonConcurrent => {
-        let key_dependencies = buffer[keys].clone();
         for (rhs_keys, fluents) in buffer.iter() {
           if rhs_keys != keys {
             dependency_sets.insert(merge(keys, rhs_keys),
@@ -320,81 +265,19 @@ mod util {
     }
     dependency_sets
   }
+
+  /// Removes all fluents from buffer with timestamps older than
+  /// `timestamp.saturating_sub(timeout)` (see [`usize`
+  /// docs](https://doc.rust-lang.org/std/primitive.usize.html) for information
+  /// on `saturating_sub`).
+  pub fn prune_buffer(buffer: &mut BTreeMap<Vec<Key>, Vec<Fluent>>,
+                      timestamp: Timestamp,
+                      timeout: usize) {
+    let cutoff = timestamp.saturating_sub(timeout);
+    for fluents in buffer.values_mut() {
+      fluents.retain(|f| f.timestamp() > cutoff);
+    }
+  }
 }
 
 // fin --------------------------------------------------------------------- //
-
-#[cfg(test)]
-mod tests {
-  use super::util;
-
-  use pretty_assertions::assert_eq;
-  // use std::collections::BTreeSet;
-
-  #[test]
-  fn merge_if_overlap_test() {
-    let keys_a = vec![42];
-    let keys_b = vec![23, 42];
-    assert_eq!(util::merge_if_overlap(&keys_a, &keys_b).unwrap(), keys_b);
-    let keys_a = vec![23, 42];
-    let keys_b = vec![23, 42];
-    assert_eq!(util::merge_if_overlap(&keys_a, &keys_b).unwrap(), keys_b);
-
-    let keys_a = vec![42];
-    let keys_b = vec![42, 23];
-    let keys_c = vec![23, 42];
-    assert_eq!(util::merge_if_overlap(&keys_a, &keys_b).unwrap(), keys_c);
-
-    let keys_a = vec![42];
-    let keys_b = vec![42];
-    assert_eq!(util::merge_if_overlap(&keys_a, &keys_b).unwrap(), keys_b);
-
-    let keys_a = vec![42];
-    let keys_b = vec![23];
-    assert!(util::merge_if_overlap(&keys_a, &keys_b).is_none());
-
-    let keys_a = vec![];
-    let keys_b = vec![23, 42];
-    assert!(util::merge_if_overlap(&keys_a, &keys_b).is_none());
-  }
-
-  #[test]
-  fn key_matches_test() {
-    let key_sets = vec![vec![23], vec![42], vec![72], vec![94]];
-    let keys = vec![72];
-    let key_matches = vec![vec![72]];
-    assert_eq!(util::key_matches(&key_sets, &keys), key_matches);
-
-    let key_sets = vec![vec![23],     // e.g. rendez_vous_conditions
-                        vec![42],     // e.g. rendez_vous_conditions
-                        vec![23, 42], // e.g. proximity
-                        vec![72],
-                        vec![94],
-                        vec![42, 72]];
-
-    let keys = vec![23];
-    let key_matches = vec![vec![23, 42]];
-    assert_eq!(util::key_matches(&key_sets, &keys), key_matches);
-    // with the above key_matches, we can now retrieve the proximity and both
-    // the rendez_vous_conditions by simply iterating the buffer and comparing
-    // keys / checking if key is contained in key_matches.
-    //
-    // finally, sort by dependency list order. done.
-
-    let keys = vec![42];
-    let key_matches = vec![vec![23, 42], vec![42, 72]];
-    assert_eq!(util::key_matches(&key_sets, &keys), key_matches);
-
-    let keys = vec![94];
-    let key_matches = vec![vec![94]];
-    assert_eq!(util::key_matches(&key_sets, &keys), key_matches);
-
-    let keys = vec![1337];
-    assert!(util::key_matches(&key_sets, &keys).is_empty());
-
-    let keys = vec![23, 42];
-    let key_sets = vec![vec![23], vec![23, 42, 72], vec![94], vec![42, 72]];
-    let key_matches = vec![vec![23, 42, 72]];
-    assert_eq!(util::key_matches(&key_sets, &keys), key_matches);
-  }
-}
