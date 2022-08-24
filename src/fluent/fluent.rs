@@ -7,7 +7,7 @@
 use super::{FluentTrait, InnerFluent, Key, Timestamp, ValueType};
 
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 /// Enables sending [`Fluent`]s through channels.
 pub enum Fluent {
   Textual(InnerFluent<String>),
@@ -42,6 +42,20 @@ impl Fluent {
 
     // unwrap is safe due to trait bounds on T
     Box::into_inner(boxed_value.downcast::<T>().unwrap())
+  }
+
+  /// Update the fluent with a new timestamp. Update value if it has
+  /// changed, and if the value is updated, also `last_change` is updated.
+  pub fn update(&mut self, timestamp: Timestamp, value: Box<dyn ValueType>) {
+    let new_fluent = value.to_fluent(self.name(), self.keys(), timestamp);
+    match self {
+      Self::Textual(fluent) => fluent.update(timestamp, new_fluent.value()),
+      Self::Integer(fluent) => fluent.update(timestamp, new_fluent.value()),
+      Self::LongInt(fluent) => fluent.update(timestamp, new_fluent.value()),
+      Self::FloatPt(fluent) => fluent.update(timestamp, new_fluent.value()),
+      Self::Boolean(fluent) => fluent.update(timestamp, new_fluent.value()),
+      Self::PlanePt(fluent) => fluent.update(timestamp, new_fluent.value()),
+    }
   }
 }
 

@@ -8,7 +8,8 @@ use super::{broker::Broker, database::Database, util};
 use crate::{fluent::{Fluent, FluentTrait, ValueType},
             nodes::{fluent_handler::{EvalFn,
                                      FluentHandler,
-                                     FluentHandlerDefinition},
+                                     FluentHandlerDefinition,
+                                     KeyDependency},
                     Sink,
                     Source}};
 

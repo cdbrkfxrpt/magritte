@@ -33,4 +33,4 @@ mod handler;
 
 pub use context::Context;
 pub use eval_fn::EvalFn;
-pub use handler::{FluentHandler, FluentHandlerDefinition};
+pub use handler::{FluentHandler, FluentHandlerDefinition, KeyDependency};

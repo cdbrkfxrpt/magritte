@@ -13,6 +13,7 @@ edition = "2021"
 
 
 [dependencies]
+array_tool = "1.0"
 async-trait = "0.1"
 boolinator = "2.4"
 clap = { version = "3.0", features = ["derive"] }
@@ -22,6 +23,7 @@ downcast-rs = "1.2"
 eyre = "0.6"
 futures = "0.3"
 indoc = "1.0"
+itertools = "0.10"
 toml = "0.5"
 
 # serde

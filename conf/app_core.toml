@@ -15,23 +15,37 @@ password = "barbershop"
 dbname = "doi105281zenodo1167595"
 
 # [[sinks]]
-# subscribes_to = ["lon", "lat"]
+# debug = true
+# subscribes_to = ["lon", "lat", "location"]
+
+# [[sinks]]
+# debug = true
+# subscribes_to = [
+#   "high_speed",
+#   "near_coast",
+#   "high_speed_near_coast"
+# ]
 
 [[sinks]]
 debug = true
 subscribes_to = [
-  "high_speed_near_coast",
-  "high_speed",
-  "near_coast",
-  "distance_from_coast"
+  "proximity",
+  "distance"
 ]
 
+# [[sinks]]
+# debug = true
+# subscribes_to = [
+#   "stopped_or_low_speed",
+#   "near_coast",
+#   "near_ports",
+#   "is_tug_or_pilot"
+# ]
+
 [[sinks]]
 debug = true
 subscribes_to = [
-  "near_coast",
-  "near_ports",
-  "is_tug_or_pilot"
+  "rendez_vous_conditions"
 ]
 
 
@@ -39,7 +53,7 @@ subscribes_to = [
 publishes = ["lon", "lat", "speed"]
 
   [source.run_params]
-  millis_per_cycle = 100
+  millis_per_cycle = 1000
   datapoints_to_run = 100000
 
   [source.query_params]

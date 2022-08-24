@@ -4,7 +4,7 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use crate::fluent::ValueType;
+use crate::fluent::{Fluent, ValueType};
 
 use derivative::Derivative;
 use eyre::Result;
@@ -65,7 +65,8 @@ impl DatabaseContext {
 /// [`FluentHandler`](super::FluentHandler) as it runs.
 pub struct Context {
   #[derivative(Debug = "ignore")]
-  database: Option<DatabaseContext>,
+  database:  Option<DatabaseContext>,
+  reference: Vec<Fluent>,
 }
 
 impl Context {
@@ -75,8 +76,10 @@ impl Context {
       Some(query) => Some(DatabaseContext::new(client, query).await?),
       None => None,
     };
+    let reference = Vec::new();
 
-    Ok(Self { database })
+    Ok(Self { database,
+              reference })
   }
 
   /// Query the contained database connection, if available, with the statement
