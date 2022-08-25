@@ -273,7 +273,7 @@
     eval_fn: EvalFn::specify(Box::new(
       |fluents, _| async move {
         let instant = fluents.get(0)?.value::<std::time::Instant>();
-        usr::return_value(instant.elapsed().as_millis() as i64)
+        usr::return_value(instant.elapsed().as_micros() as i64)
       }.boxed()
     ))
   },
@@ -299,7 +299,7 @@
     eval_fn: EvalFn::specify(Box::new(
       |fluents, _| async move {
         let instant = fluents.get(0)?.value::<std::time::Instant>();
-        usr::return_value(instant.elapsed().as_millis() as i64)
+        usr::return_value(instant.elapsed().as_micros() as i64)
       }.boxed()
     )),
   },
