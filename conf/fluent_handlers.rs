@@ -70,109 +70,16 @@
     )),
   },
   FluentHandlerDefinition {
-    fluent_name: "rendez_vous_conditions",
-    dependencies: &[
-      "stopped_or_low_speed",
-      "is_tug_or_pilot",
-      "near_coast",
-      "near_ports"
-    ],
+    fluent_name: "rendez_vous",
+    dependencies: &["proximity" ,"rendez_vous_candidates"],
     key_dependency: KeyDependency::Concurrent,
     database_query: None,
     eval_fn: EvalFn::specify(Box::new(
       |fluents, _| async move {
-        let stopped_or_low_speed = fluents.get(0)?.value::<bool>();
-        let is_tug_or_pilot = fluents.get(1)?.value::<bool>();
-        let near_coast = fluents.get(2)?.value::<bool>();
-        let near_ports = fluents.get(3)?.value::<bool>();
+        let proximity = fluents.get(0)?.value::<bool>();
+        let rendez_vous_candidates = fluents.get(1)?.value::<bool>();
 
-        usr::return_value(
-          stopped_or_low_speed
-          && !is_tug_or_pilot
-          && !near_coast
-          && !near_ports
-        )
-      }.boxed()
-    )),
-  },
-  FluentHandlerDefinition {
-    fluent_name: "stopped_or_low_speed",
-    dependencies: &["speed"],
-    key_dependency: KeyDependency::Concurrent,
-    database_query: None,
-    eval_fn: EvalFn::specify(Box::new(
-      |fluents, _| async move {
-        let speed = fluents.get(0)?.value::<f64>();
-        usr::return_value(speed <= 5.0)
-      }.boxed()
-    )),
-  },
-  FluentHandlerDefinition {
-    fluent_name: "near_ports",
-    dependencies: &["distance_from_ports"],
-    key_dependency: KeyDependency::Concurrent,
-    database_query: None,
-    eval_fn: EvalFn::specify(Box::new(
-      |fluents, _| async move {
-        let distance_from_ports = fluents.get(0)?.value::<f64>();
-        usr::return_value(distance_from_ports <= 300.0)
-      }.boxed()
-    )),
-  },
-  FluentHandlerDefinition {
-    fluent_name: "distance_from_ports",
-    dependencies: &["location"],
-    key_dependency: KeyDependency::Concurrent,
-    database_query: Some(indoc! {r#"
-      -- requires two input values: [lon, lat]
-      select ST_Distance(
-        ST_Transform(ST_SetSRID(ST_MakePoint($1, $2), 4326), 3857),
-        ST_Transform(geom, 3857)
-      ) as distance
-      from ports.ports_of_brittany
-      order by distance
-      limit 1
-    "#}),
-    eval_fn: EvalFn::specify(Box::new(
-      |fluents, context| async move {
-        let (lon, lat) = fluents.get(0)?.value::<(f64, f64)>();
-
-        let distance_from_ports = context.database_query::<f64>(&[&lon, &lat])
-                                         .await?;
-
-        usr::return_value(distance_from_ports)
-      }.boxed()
-    )),
-  },
-  FluentHandlerDefinition {
-    fluent_name: "is_tug_or_pilot",
-    dependencies: &["speed"],
-    key_dependency: KeyDependency::Concurrent,
-    database_query: Some(indoc! {r#"
-      -- requires one input value: [key]
-      select shiptype as ship_type
-      from ais_data.static_ships
-      where sourcemmsi = $1
-      limit 1
-    "#}),
-    eval_fn: EvalFn::specify(Box::new(
-      |fluents, context| async move {
-        let key = fluents.get(0)?.keys().get(0)?.to_owned() as i32;
-        let ship_type = context.database_query::<i32>(&[&key]).await?;
-
-        // Vessel Type Codes:
-        // - 30: Fishing
-        // - 31: Tug
-        // - 32: Tug
-        // - 35: Military
-        // - 50: Pilot
-        // - 51: SAR Vessel
-        // - 52: Tug
-        // - 53: Port Tender
-        // - 55: Law Enforcement
-        let type_codes = vec![31, 32, 50, 52];
-
-        usr::return_value(type_codes.contains(&ship_type))
+        usr::return_value(proximity && rendez_vous_candidates)
       }.boxed()
     )),
   },
@@ -191,7 +98,7 @@
   FluentHandlerDefinition {
     fluent_name: "distance",
     dependencies: &["location"],
-    key_dependency: KeyDependency::NonConcurrent,
+    key_dependency: KeyDependency::NonConcurrent { timeout: 600 },
     database_query: None,
     eval_fn: EvalFn::specify(Box::new(
       |fluents, _| async move {
@@ -234,6 +141,127 @@
         let lat = fluents.get(1)?.value::<f64>();
 
         usr::return_value((lon, lat))
+      }.boxed()
+    )),
+  },
+  FluentHandlerDefinition {
+    fluent_name: "rendez_vous_candidates",
+    dependencies: &["rendez_vous_conditions"],
+    key_dependency: KeyDependency::NonConcurrent { timeout: 1800 },
+    database_query: None,
+    eval_fn: EvalFn::specify(Box::new(
+      |fluents, _| async move {
+        let lhs_is_candidate = fluents.get(0)?.value::<bool>();
+        let rhs_is_candidate = fluents.get(1)?.value::<bool>();
+
+        usr::return_value(lhs_is_candidate && rhs_is_candidate)
+      }.boxed()
+    )),
+  },
+  FluentHandlerDefinition {
+    fluent_name: "rendez_vous_conditions",
+    dependencies: &[
+      "stopped_or_low_speed",
+      "is_tug_or_pilot",
+      "near_coast",
+      "near_ports"
+    ],
+    key_dependency: KeyDependency::Concurrent,
+    database_query: None,
+    eval_fn: EvalFn::specify(Box::new(
+      |fluents, _| async move {
+        let stopped_or_low_speed = fluents.get(0)?.value::<bool>();
+        let is_tug_or_pilot = fluents.get(1)?.value::<bool>();
+        let near_coast = fluents.get(2)?.value::<bool>();
+        let near_ports = fluents.get(3)?.value::<bool>();
+
+        usr::return_value(
+          stopped_or_low_speed
+          && !is_tug_or_pilot
+          && !near_coast
+          && !near_ports
+        )
+      }.boxed()
+    )),
+  },
+  FluentHandlerDefinition {
+    fluent_name: "stopped_or_low_speed",
+    dependencies: &["speed"],
+    key_dependency: KeyDependency::Concurrent,
+    database_query: None,
+    eval_fn: EvalFn::specify(Box::new(
+      |fluents, _| async move {
+        let speed = fluents.get(0)?.value::<f64>();
+        usr::return_value(speed <= 5.0)
+      }.boxed()
+    )),
+  },
+  FluentHandlerDefinition {
+    fluent_name: "is_tug_or_pilot",
+    dependencies: &["speed"],
+    key_dependency: KeyDependency::Static,
+    database_query: Some(indoc! {r#"
+      -- requires one input value: [key]
+      select shiptype as ship_type
+      from ais_data.static_ships
+      where sourcemmsi = $1
+      limit 1
+    "#}),
+    eval_fn: EvalFn::specify(Box::new(
+      |fluents, context| async move {
+        let key = fluents.get(0)?.keys().get(0)?.to_owned() as i32;
+        let ship_type = context.database_query::<i32>(&[&key]).await?;
+
+        // Vessel Type Codes:
+        // - 30: Fishing
+        // - 31: Tug
+        // - 32: Tug
+        // - 35: Military
+        // - 50: Pilot
+        // - 51: SAR Vessel
+        // - 52: Tug
+        // - 53: Port Tender
+        // - 55: Law Enforcement
+        let type_codes = vec![31, 32, 50, 52];
+
+        usr::return_value(type_codes.contains(&ship_type))
+      }.boxed()
+    )),
+  },
+  FluentHandlerDefinition {
+    fluent_name: "near_ports",
+    dependencies: &["distance_from_ports"],
+    key_dependency: KeyDependency::Concurrent,
+    database_query: None,
+    eval_fn: EvalFn::specify(Box::new(
+      |fluents, _| async move {
+        let distance_from_ports = fluents.get(0)?.value::<f64>();
+        usr::return_value(distance_from_ports <= 300.0)
+      }.boxed()
+    )),
+  },
+  FluentHandlerDefinition {
+    fluent_name: "distance_from_ports",
+    dependencies: &["location"],
+    key_dependency: KeyDependency::Concurrent,
+    database_query: Some(indoc! {r#"
+      -- requires two input values: [lon, lat]
+      select ST_Distance(
+        ST_Transform(ST_SetSRID(ST_MakePoint($1, $2), 4326), 3857),
+        ST_Transform(geom, 3857)
+      ) as distance
+      from ports.ports_of_brittany
+      order by distance
+      limit 1
+    "#}),
+    eval_fn: EvalFn::specify(Box::new(
+      |fluents, context| async move {
+        let (lon, lat) = fluents.get(0)?.value::<(f64, f64)>();
+
+        let distance_from_ports = context.database_query::<f64>(&[&lon, &lat])
+                                         .await?;
+
+        usr::return_value(distance_from_ports)
       }.boxed()
     )),
   },

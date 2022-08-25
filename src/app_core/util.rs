@@ -30,13 +30,13 @@ macro_rules! boxvec {
   [$( $x:expr ),* $(,)?] => (vec![$( Box::new($x) ),*]);
 }
 
-// pub fn round_f32(n: f32, d: i64) -> f32 {
-//   (n * (d * 10) as f32).round() / (d * 10) as f32
-// }
 
-// pub fn round_f64(n: f64, d: i64) -> f64 {
-//   (n * (d * 10) as f64).round() / (d * 10) as f64
-// }
+#[macro_export]
+/// Alias for `vec![]` that takes `&T`s and creates a `Vec<&(dyn ToSql +
+/// Sync)>`. Bound for `T: ToSql + Sync`.
+macro_rules! sqlvec {
+  [$( $x:expr ),* $(,)?] => (vec![$( $x as &(dyn ToSql + Sync) ),*]);
+}
 
 // fin --------------------------------------------------------------------- //
 

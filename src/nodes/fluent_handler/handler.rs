@@ -14,13 +14,14 @@ use eyre::{bail, Result};
 use std::collections::BTreeMap;
 use tokio_postgres::Client;
 use tokio_stream::StreamExt;
-// use tracing::info;
+use tracing::debug;
 
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum KeyDependency {
+  Static,
   Concurrent,
-  NonConcurrent,
+  NonConcurrent { timeout: usize },
 }
 
 
@@ -106,6 +107,21 @@ impl<'a> FluentHandler<'a> {
       let keys = fluent.keys().to_vec();
       let timestamp = fluent.timestamp();
 
+      // if we have a static key dependency - in other words, if this value
+      // never changes for one key and thus needs to be calculated only once -
+      // look it up in the history and if we have it, return it from there with
+      // an updated timestamp and skip the remainder of the loop
+      if self.key_dependency == KeyDependency::Static {
+        if let Some(fluent) =
+          self.history.iter_mut().find(|f| f.keys() == keys)
+        {
+          debug!("updating and sending '{}' from history", self.fluent_name);
+          fluent.update(timestamp, fluent.boxed_value());
+          node_tx.send(fluent.clone())?;
+          continue;
+        }
+      }
+
       // check if the dependency buffer has this key (combination) already
       match self.deps_buffer.get_mut(&keys) {
         // if yes...
@@ -134,10 +150,11 @@ impl<'a> FluentHandler<'a> {
       // assemble dependency sets to run through
       let dependency_sets = util::dependency_sets(&mut self.deps_buffer,
                                                   &keys,
+                                                  timestamp,
                                                   &self.dependencies,
                                                   &self.key_dependency);
-      // info!("{:24} dependency sets: {:?}",
-      //       self.fluent_name, dependency_sets);
+      debug!("{:24} dependency sets: {:?}",
+             self.fluent_name, dependency_sets);
       // continue;
 
       for (dep_keys, dependencies) in dependency_sets.into_iter() {
@@ -238,13 +255,14 @@ mod util {
   /// Assort the set of dependencies from the buffer.
   pub fn dependency_sets(buffer: &mut BTreeMap<Vec<Key>, Vec<Fluent>>,
                          keys: &Vec<Key>,
+                         timestamp: Timestamp,
                          dependencies: &Vec<String>,
                          key_dependency: &KeyDependency)
                          -> BTreeMap<Vec<Key>, Vec<Fluent>> {
     let mut dependency_sets = BTreeMap::new();
     let mut key_dependencies = buffer[keys].clone();
     match key_dependency {
-      KeyDependency::Concurrent => {
+      KeyDependency::Static | KeyDependency::Concurrent => {
         if equal(&fluent_names(&key_dependencies).unique(), dependencies)
            && same_timestamps(&key_dependencies)
         {
@@ -254,7 +272,8 @@ mod util {
           buffer.remove(keys);
         }
       }
-      KeyDependency::NonConcurrent => {
+      KeyDependency::NonConcurrent { timeout } => {
+        prune_buffer(buffer, timestamp, *timeout);
         for (rhs_keys, fluents) in buffer.iter() {
           if rhs_keys != keys {
             dependency_sets.insert(merge(keys, rhs_keys),

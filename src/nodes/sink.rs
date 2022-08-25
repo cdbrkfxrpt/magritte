@@ -5,13 +5,16 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use super::{Node, NodeRx, NodeTx};
-use crate::fluent::{Fluent, FluentTrait};
+use crate::{fluent::{Fluent, FluentTrait},
+            sqlvec};
 
 use eyre::{bail, eyre, Result};
 use serde::Deserialize;
-use tokio_postgres::Client;
+use std::time::Duration;
+use tokio::time;
+use tokio_postgres::{types::ToSql, Client};
 use tokio_stream::StreamExt;
-use tracing::info;
+use tracing::{debug, info};
 
 
 #[derive(Debug, Deserialize)]
@@ -19,6 +22,7 @@ use tracing::info;
 /// service and writes them to the PostgreSQL database.
 pub struct Sink {
   debug:         bool,
+  write_timeout: usize,
   subscribes_to: Vec<String>,
   #[serde(skip)]
   node_rx:       Option<NodeRx>,
@@ -38,16 +42,17 @@ impl Sink {
     };
 
     let sql_raw = include_str!("../sql/sink.sql");
+    let timeout = Duration::from_millis(self.write_timeout as u64);
 
     while let Some((_, Ok(fluent))) = node_rx.next().await {
+      info!("Sink received: {:?}", fluent);
       if self.debug {
-        info!("Sink received: {:?}", fluent);
         continue;
       }
 
+      // write only Boolean fluents to database
       if !matches!(fluent, Fluent::Boolean(_)) {
         continue;
-        // bail!("Sink received non-boolean fluent, aborting")
       }
 
       let name = fluent.name();
@@ -56,13 +61,13 @@ impl Sink {
       let value = fluent.value::<bool>();
       let last_change = fluent.last_change() as i64;
 
-      database_client.execute(sql_raw,
-                              &[&name,
-                                &keys,
-                                &timestamp,
-                                &value,
-                                &last_change])
-                     .await?;
+      let args = sqlvec![&name, &keys, &timestamp, &value, &last_change];
+      let write_future = database_client.execute(sql_raw, args.as_slice());
+
+      match time::timeout(timeout, write_future).await? {
+        Ok(rows_affected) => debug!("{} rows affected", rows_affected),
+        Err(_) => info!("database write timed out"),
+      }
     }
     Ok(())
   }
@@ -96,6 +101,7 @@ mod tests {
 
   fn sink_init() -> Sink {
     Sink { debug:         true,
+           write_timeout: 42,
            subscribes_to: stringvec!["highSpeedNearCoast", "rendezVous"],
            node_rx:       None, }
   }

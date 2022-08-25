@@ -121,18 +121,6 @@ mod tests {
     assert_eq!(*boxed_value, value);
     assert_eq!(fluent.last_change, timestamp);
     assert_eq!(fluent.last_change(), timestamp);
-
-    let other = InnerFluent::new(name, keys, timestamp, value);
-    assert_eq!(fluent, other);
-
-    let new_timestamp = 1338;
-    let new_value = String::from("blocked");
-
-    assert_eq!(other.value, new_value);
-    let boxed_value = other.boxed_value().downcast::<String>().unwrap();
-    assert_eq!(*boxed_value, new_value);
-    assert_eq!(other.last_change(), new_timestamp);
-    assert!(fluent < other);
   }
 
   #[test]
@@ -155,18 +143,6 @@ mod tests {
     assert_eq!(*boxed_value, value);
     assert_eq!(fluent.last_change, timestamp);
     assert_eq!(fluent.last_change(), timestamp);
-
-    let other = InnerFluent::new(name, keys, timestamp, value);
-    assert_eq!(fluent, other);
-
-    let new_timestamp = 1338;
-    let new_value = 2;
-
-    assert_eq!(other.value, new_value);
-    let boxed_value = other.boxed_value().downcast::<i64>().unwrap();
-    assert_eq!(*boxed_value, new_value);
-    assert_eq!(other.last_change(), new_timestamp);
-    assert!(fluent < other);
   }
 
   #[test]
@@ -189,18 +165,6 @@ mod tests {
     assert_eq!(*boxed_value, value);
     assert_eq!(fluent.last_change, timestamp);
     assert_eq!(fluent.last_change(), timestamp);
-
-    let other = InnerFluent::new(name, keys, timestamp, value);
-    assert_eq!(fluent, other);
-
-    let new_timestamp = 1338;
-    let new_value = 2.71828;
-
-    assert_eq!(other.value, new_value);
-    let boxed_value = other.boxed_value().downcast::<f64>().unwrap();
-    assert_eq!(*boxed_value, new_value);
-    assert_eq!(other.last_change(), new_timestamp);
-    assert!(fluent < other);
   }
 
   #[test]
@@ -223,18 +187,6 @@ mod tests {
     assert_eq!(*boxed_value, value);
     assert_eq!(fluent.last_change, timestamp);
     assert_eq!(fluent.last_change(), timestamp);
-
-    let other = InnerFluent::new(name, keys, timestamp, value);
-    assert_eq!(fluent, other);
-
-    let new_timestamp = 1338;
-    let new_value = false;
-
-    assert_eq!(other.value, new_value);
-    let boxed_value = other.boxed_value().downcast::<bool>().unwrap();
-    assert_eq!(*boxed_value, new_value);
-    assert_eq!(other.last_change(), new_timestamp);
-    assert!(fluent < other);
   }
 
   #[test]
@@ -257,17 +209,5 @@ mod tests {
     assert_eq!(*boxed_value, value);
     assert_eq!(fluent.last_change, timestamp);
     assert_eq!(fluent.last_change(), timestamp);
-
-    let other = InnerFluent::new(name, keys, timestamp, value);
-    assert_eq!(fluent, other);
-
-    let new_timestamp = 1338;
-    let new_value = (2.71828, 3.14159);
-
-    assert_eq!(other.value, new_value);
-    let boxed_value = other.boxed_value().downcast::<(f64, f64)>().unwrap();
-    assert_eq!(*boxed_value, new_value);
-    assert_eq!(other.last_change(), new_timestamp);
-    assert!(fluent < other);
   }
 }

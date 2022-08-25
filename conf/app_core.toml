@@ -19,10 +19,12 @@ dbname = "doi105281zenodo1167595"
 
 # [[sinks]]
 # debug = true
+# write_timeout = 80
 # subscribes_to = ["lon", "lat", "location"]
 
 [[sinks]]
 debug = true
+write_timeout = 80
 subscribes_to = [
   "high_speed",
   "near_coast",
@@ -31,6 +33,7 @@ subscribes_to = [
 
 [[sinks]]
 debug = true
+write_timeout = 80
 subscribes_to = [
   "proximity",
   "distance"
@@ -38,6 +41,7 @@ subscribes_to = [
 
 [[sinks]]
 debug = true
+write_timeout = 80
 subscribes_to = [
   "stopped_or_low_speed",
   "near_coast",
@@ -47,7 +51,10 @@ subscribes_to = [
 
 [[sinks]]
 debug = true
+write_timeout = 80
 subscribes_to = [
+  "rendez_vous",
+  "rendez_vous_candidates",
   "rendez_vous_conditions"
 ]
 
@@ -56,7 +63,7 @@ subscribes_to = [
 publishes = ["lon", "lat", "speed"]
 
   [source.run_params]
-  millis_per_cycle = 1000
+  millis_per_cycle = 100
   datapoints_to_run = 100000
 
   [source.query_params]
