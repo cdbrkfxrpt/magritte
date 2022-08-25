@@ -171,6 +171,9 @@ mod tests {
       source.run(Some(database_client)).await.unwrap();
     });
 
+    // the first value is the instant for time measurement; we need to skip
+    // that and take the first "real" value instaed.
+    rx.recv().await.unwrap();
     let fluent = rx.recv().await.unwrap();
 
     assert_eq!(fluent.name(), "lon");

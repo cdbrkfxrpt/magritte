@@ -9,6 +9,7 @@ use crate::fluent::Fluent;
 
 use eyre::{bail, eyre, Result};
 use serde::Deserialize;
+use std::time::Instant;
 use tokio::time;
 use tokio_postgres::Client;
 use tracing::info;
@@ -80,6 +81,11 @@ impl Source {
         timestamp = row.get::<&str, i64>("timestamp") as usize;
 
         if timestamp <= time {
+          node_tx.send(Fluent::new("instant",
+                                   &[key],
+                                   timestamp,
+                                   Box::new(Instant::now())))?;
+
           for fluent_name in self.publishes.iter() {
             let value: f64 = row.get(fluent_name.as_str());
             let fluent =

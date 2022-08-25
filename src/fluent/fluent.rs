@@ -6,6 +6,8 @@
 
 use super::{FluentTrait, InnerFluent, Key, Timestamp, ValueType};
 
+use std::time::Instant;
+
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 /// Enables sending [`Fluent`]s through channels.
@@ -16,6 +18,7 @@ pub enum Fluent {
   FloatPt(InnerFluent<f64>),
   Boolean(InnerFluent<bool>),
   PlanePt(InnerFluent<(f64, f64)>),
+  Instant(InnerFluent<Instant>),
 }
 
 impl Fluent {
@@ -38,6 +41,7 @@ impl Fluent {
       Self::FloatPt(fluent) => fluent.boxed_value(),
       Self::Boolean(fluent) => fluent.boxed_value(),
       Self::PlanePt(fluent) => fluent.boxed_value(),
+      Self::Instant(fluent) => fluent.boxed_value(),
     };
 
     // unwrap is safe due to trait bounds on T
@@ -55,6 +59,7 @@ impl Fluent {
       Self::FloatPt(fluent) => fluent.update(timestamp, new_fluent.value()),
       Self::Boolean(fluent) => fluent.update(timestamp, new_fluent.value()),
       Self::PlanePt(fluent) => fluent.update(timestamp, new_fluent.value()),
+      Self::Instant(fluent) => fluent.update(timestamp, new_fluent.value()),
     }
   }
 }
@@ -69,6 +74,7 @@ impl FluentTrait for Fluent {
       Self::FloatPt(fluent) => fluent.name(),
       Self::Boolean(fluent) => fluent.name(),
       Self::PlanePt(fluent) => fluent.name(),
+      Self::Instant(fluent) => fluent.name(),
     }
   }
 
@@ -81,6 +87,7 @@ impl FluentTrait for Fluent {
       Self::FloatPt(fluent) => fluent.keys(),
       Self::Boolean(fluent) => fluent.keys(),
       Self::PlanePt(fluent) => fluent.keys(),
+      Self::Instant(fluent) => fluent.keys(),
     }
   }
 
@@ -93,6 +100,7 @@ impl FluentTrait for Fluent {
       Self::FloatPt(fluent) => fluent.timestamp(),
       Self::Boolean(fluent) => fluent.timestamp(),
       Self::PlanePt(fluent) => fluent.timestamp(),
+      Self::Instant(fluent) => fluent.timestamp(),
     }
   }
 
@@ -104,6 +112,7 @@ impl FluentTrait for Fluent {
       Self::FloatPt(fluent) => fluent.boxed_value(),
       Self::Boolean(fluent) => fluent.boxed_value(),
       Self::PlanePt(fluent) => fluent.boxed_value(),
+      Self::Instant(fluent) => fluent.boxed_value(),
     }
   }
 
@@ -116,6 +125,7 @@ impl FluentTrait for Fluent {
       Self::FloatPt(fluent) => fluent.last_change(),
       Self::Boolean(fluent) => fluent.last_change(),
       Self::PlanePt(fluent) => fluent.last_change(),
+      Self::Instant(fluent) => fluent.last_change(),
     }
   }
 }

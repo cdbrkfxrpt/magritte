@@ -7,7 +7,7 @@
 use super::{Fluent, InnerFluent, Key, Timestamp};
 
 use downcast_rs::{impl_downcast, DowncastSync};
-use std::fmt;
+use std::{fmt, time::Instant};
 
 
 /// Helper trait to enable selection of the correct [`Fluent`] variant based
@@ -61,5 +61,11 @@ impl ValueType for bool {
 impl ValueType for (f64, f64) {
   fn to_fluent(&self, name: &str, keys: &[Key], ts: Timestamp) -> Fluent {
     Fluent::PlanePt(InnerFluent::new(name, keys, ts, self.to_owned()))
+  }
+}
+
+impl ValueType for Instant {
+  fn to_fluent(&self, name: &str, keys: &[Key], ts: Timestamp) -> Fluent {
+    Fluent::Instant(InnerFluent::new(name, keys, ts, self.to_owned()))
   }
 }

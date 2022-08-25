@@ -265,4 +265,42 @@
       }.boxed()
     )),
   },
+  FluentHandlerDefinition {
+    fluent_name: "high_speed_near_coast_runtime",
+    dependencies: &["instant", "high_speed_near_coast"],
+    key_dependency: KeyDependency::Concurrent,
+    database_query: None,
+    eval_fn: EvalFn::specify(Box::new(
+      |fluents, _| async move {
+        let instant = fluents.get(0)?.value::<std::time::Instant>();
+        usr::return_value(instant.elapsed().as_millis() as i64)
+      }.boxed()
+    ))
+  },
+  FluentHandlerDefinition {
+    fluent_name: "instant_split",
+    dependencies: &["instant"],
+    key_dependency: KeyDependency::NonConcurrent { timeout: 30 },
+    database_query: None,
+    eval_fn: EvalFn::specify(Box::new(
+      |fluents, _| async move {
+        let lhs = fluents.get(0)?.value::<std::time::Instant>();
+        let rhs = fluents.get(1)?.value::<std::time::Instant>();
+
+        usr::return_value(std::cmp::max(lhs, rhs))
+      }.boxed()
+    )),
+  },
+  FluentHandlerDefinition {
+    fluent_name: "rendez_vous_runtime",
+    dependencies: &["instant_split", "rendez_vous"],
+    key_dependency: KeyDependency::Concurrent,
+    database_query: None,
+    eval_fn: EvalFn::specify(Box::new(
+      |fluents, _| async move {
+        let instant = fluents.get(0)?.value::<std::time::Instant>();
+        usr::return_value(instant.elapsed().as_millis() as i64)
+      }.boxed()
+    )),
+  },
 ]

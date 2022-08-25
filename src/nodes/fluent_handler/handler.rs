@@ -112,12 +112,12 @@ impl<'a> FluentHandler<'a> {
       // look it up in the history and if we have it, return it from there with
       // an updated timestamp and skip the remainder of the loop
       if self.key_dependency == KeyDependency::Static {
-        if let Some(fluent) =
+        if let Some(history_fluent) =
           self.history.iter_mut().find(|f| f.keys() == keys)
         {
           debug!("updating and sending '{}' from history", self.fluent_name);
-          fluent.update(timestamp, fluent.boxed_value());
-          node_tx.send(fluent.clone())?;
+          history_fluent.update(timestamp, history_fluent.boxed_value());
+          node_tx.send(history_fluent.clone())?;
           continue;
         }
       }
@@ -127,9 +127,11 @@ impl<'a> FluentHandler<'a> {
         // if yes...
         Some(buffer) => {
           // ... check if we have this fluent (by name) already and...
-          if let Some(fluent) = buffer.iter_mut().find(|f| f.name() == name) {
+          if let Some(buffered_fluent) =
+            buffer.iter_mut().find(|f| f.name() == name)
+          {
             // ... if yes, update it.
-            fluent.update(timestamp, fluent.boxed_value())
+            buffered_fluent.update(timestamp, fluent.boxed_value())
           } else {
             // ... if not, push it into the buffer.
             buffer.push(fluent)
