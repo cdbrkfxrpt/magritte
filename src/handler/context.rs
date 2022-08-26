@@ -62,7 +62,7 @@ impl DatabaseContext {
 #[derive(Derivative)]
 #[derivative(Debug)]
 /// Container for run time parameters used in user definitions of the
-/// [`FluentHandler`](super::FluentHandler) as it runs.
+/// [`Handler`](super::Handler) as it runs.
 pub struct Context {
   #[derivative(Debug = "ignore")]
   database:  Option<DatabaseContext>,

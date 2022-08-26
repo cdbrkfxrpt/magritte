@@ -28,7 +28,7 @@
 
 mod app_core;
 mod fluent;
-mod nodes;
+mod handler;
 
 use app_core::AppCore;
 

@@ -4,14 +4,13 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use super::{broker::Broker, database::Database, util};
+use super::{broker::Broker,
+            database::Database,
+            sink::Sink,
+            source::Source,
+            util};
 use crate::{fluent::{Fluent, FluentTrait, ValueType},
-            nodes::{fluent_handler::{EvalFn,
-                                     FluentHandler,
-                                     FluentHandlerDefinition,
-                                     KeyDependency},
-                    Sink,
-                    Source}};
+            handler::{EvalFn, Handler, HandlerDefinition, KeyDependency}};
 
 use clap::Parser;
 use eyre::Result;
@@ -46,7 +45,7 @@ impl AppCore {
   /// Prepares the database for a run using the following PostgreSQL:
   ///
   /// ```sql
-  #[doc = include_str!("../sql/prepare_run.sql")]
+  #[doc = include_str!("./sql/prepare_run.sql")]
   /// ```
   ///
   /// Furthermore, registers the [`Source`], [`Sink`] and fluent nodes at the
@@ -63,7 +62,7 @@ impl AppCore {
     // run prep
     let client = database.connect().await?;
 
-    let sql_raw = include_str!("../sql/prepare_run.sql");
+    let sql_raw = include_str!("./sql/prepare_run.sql");
     debug!("executing SYSTEM run preparation SQL:\n\n{}", sql_raw);
     client.batch_execute(sql_raw).await?;
 
@@ -78,10 +77,9 @@ impl AppCore {
 
     // initialize and run nodes
     let mut node_tasks = Vec::new();
-    for def in include!("../../conf/fluent_handlers.rs") {
+    for def in include!("../../conf/handler_definitions.rs") {
       let database_client = database.connect().await?;
-      let mut node =
-        FluentHandler::new(def, buffer_timeout, database_client).await?;
+      let mut node = Handler::new(def, buffer_timeout, database_client).await?;
 
       broker.register(&mut node);
 
@@ -147,8 +145,8 @@ mod usr {
 #[cfg(test)]
 mod tests {
   use super::AppCore;
-  use crate::{fluent::FluentTrait,
-              nodes::{Node, NodeRx},
+  use crate::{app_core::node::{Node, NodeRx},
+              fluent::FluentTrait,
               stringvec};
 
   use pretty_assertions::assert_eq;

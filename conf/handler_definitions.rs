@@ -1,5 +1,5 @@
 [
-  FluentHandlerDefinition {
+  HandlerDefinition {
     fluent_name: "high_speed_near_coast",
     dependencies: &["high_speed", "near_coast"],
     key_dependency: KeyDependency::Concurrent,
@@ -13,7 +13,7 @@
       }.boxed()
     )),
   },
-  FluentHandlerDefinition {
+  HandlerDefinition {
     fluent_name: "high_speed",
     dependencies: &["speed"],
     key_dependency: KeyDependency::Concurrent,
@@ -33,7 +33,7 @@
       }.boxed()
     )),
   },
-  FluentHandlerDefinition {
+  HandlerDefinition {
     fluent_name: "near_coast",
     dependencies: &["distance_from_coast"],
     key_dependency: KeyDependency::Concurrent,
@@ -45,7 +45,7 @@
       }.boxed()
     )),
   },
-  FluentHandlerDefinition {
+  HandlerDefinition {
     fluent_name: "distance_from_coast",
     dependencies: &["location"],
     key_dependency: KeyDependency::Concurrent,
@@ -69,7 +69,7 @@
       }.boxed()
     )),
   },
-  FluentHandlerDefinition {
+  HandlerDefinition {
     fluent_name: "rendez_vous",
     dependencies: &["proximity" ,"rendez_vous_candidates"],
     key_dependency: KeyDependency::Concurrent,
@@ -83,7 +83,7 @@
       }.boxed()
     )),
   },
-  FluentHandlerDefinition {
+  HandlerDefinition {
     fluent_name: "proximity",
     dependencies: &["distance"],
     key_dependency: KeyDependency::Concurrent,
@@ -95,7 +95,7 @@
       }.boxed()
     )),
   },
-  FluentHandlerDefinition {
+  HandlerDefinition {
     fluent_name: "distance",
     dependencies: &["location"],
     key_dependency: KeyDependency::NonConcurrent { timeout: 600 },
@@ -130,7 +130,7 @@
       }.boxed()
     )),
   },
-  FluentHandlerDefinition {
+  HandlerDefinition {
     fluent_name: "location",
     dependencies: &["lon", "lat"],
     key_dependency: KeyDependency::Concurrent,
@@ -144,7 +144,7 @@
       }.boxed()
     )),
   },
-  FluentHandlerDefinition {
+  HandlerDefinition {
     fluent_name: "rendez_vous_candidates",
     dependencies: &["rendez_vous_conditions"],
     key_dependency: KeyDependency::NonConcurrent { timeout: 1800 },
@@ -158,7 +158,7 @@
       }.boxed()
     )),
   },
-  FluentHandlerDefinition {
+  HandlerDefinition {
     fluent_name: "rendez_vous_conditions",
     dependencies: &[
       "stopped_or_low_speed",
@@ -184,7 +184,7 @@
       }.boxed()
     )),
   },
-  FluentHandlerDefinition {
+  HandlerDefinition {
     fluent_name: "stopped_or_low_speed",
     dependencies: &["speed"],
     key_dependency: KeyDependency::Concurrent,
@@ -196,7 +196,7 @@
       }.boxed()
     )),
   },
-  FluentHandlerDefinition {
+  HandlerDefinition {
     fluent_name: "is_tug_or_pilot",
     dependencies: &["speed"],
     key_dependency: KeyDependency::Static,
@@ -228,7 +228,7 @@
       }.boxed()
     )),
   },
-  FluentHandlerDefinition {
+  HandlerDefinition {
     fluent_name: "near_ports",
     dependencies: &["distance_from_ports"],
     key_dependency: KeyDependency::Concurrent,
@@ -240,7 +240,7 @@
       }.boxed()
     )),
   },
-  FluentHandlerDefinition {
+  HandlerDefinition {
     fluent_name: "distance_from_ports",
     dependencies: &["location"],
     key_dependency: KeyDependency::Concurrent,
@@ -265,7 +265,7 @@
       }.boxed()
     )),
   },
-  FluentHandlerDefinition {
+  HandlerDefinition {
     fluent_name: "high_speed_near_coast_runtime",
     dependencies: &["instant", "high_speed_near_coast"],
     key_dependency: KeyDependency::Concurrent,
@@ -277,7 +277,7 @@
       }.boxed()
     ))
   },
-  FluentHandlerDefinition {
+  HandlerDefinition {
     fluent_name: "instant_split",
     dependencies: &["instant"],
     key_dependency: KeyDependency::NonConcurrent { timeout: 30 },
@@ -291,7 +291,7 @@
       }.boxed()
     )),
   },
-  FluentHandlerDefinition {
+  HandlerDefinition {
     fluent_name: "rendez_vous_runtime",
     dependencies: &["instant_split", "rendez_vous"],
     key_dependency: KeyDependency::Concurrent,

@@ -18,7 +18,7 @@ use tracing::{debug, info};
 
 
 #[derive(Debug, Deserialize)]
-/// Receives [`Fluent`]s from the [`Broker`](crate::app_core::Broker)
+/// Receives [`Fluent`]s from the [`Broker`](super::broker::Broker)
 /// service and writes them to the PostgreSQL database.
 pub struct Sink {
   debug:         bool,
@@ -30,7 +30,7 @@ pub struct Sink {
 
 impl Sink {
   /// Runs the [`Sink`], receiving fluents from the
-  /// [`Broker`](crate::app_core::Broker) and writing them to the database.
+  /// [`Broker`](super::broker::Broker) and writing them to the database.
   /// Consumes the original object.
   pub async fn run(self, database_client: Option<Client>) -> Result<()> {
     let database_client =
@@ -41,7 +41,7 @@ impl Sink {
       None => bail!("Sink not initialized, aborting"),
     };
 
-    let sql_raw = include_str!("../sql/sink.sql");
+    let sql_raw = include_str!("./sql/sink.sql");
     let timeout = Duration::from_millis(self.write_timeout as u64);
 
     while let Some((_, Ok(fluent))) = node_rx.next().await {

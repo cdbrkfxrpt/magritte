@@ -6,15 +6,15 @@
 
 //! Components which manage fluents during run time live here.
 //!
-//! The main component here is the [`FluentHandler`], which implements
-//! [`Node`](super::Node) and is the element used by the
+//! The main component here is the [`Handler`], which implements
+//! [`Node`](crate::app_core::Node) and is the element used by the
 //! [`AppCore`](crate::app_core::AppCore) to manage fluent progress over time.
 //!
-//! The component [`FluentHandlerDefinition`] is what allows users of
-//! `magritte` to easily input the elements a [`FluentHandler`] requires to
-//! run: the name of the fluent, its dependencies (i.e. other fluents it needs
-//! to know the value of to progress), an optional PostgreSQL database query
-//! statement template and an evaluation function.
+//! The component [`HandlerDefinition`] is what allows users of `magritte` to
+//! easily input the elements a [`Handler`] requires to run: the name of the
+//! fluent, its dependencies (i.e. other fluents it needs to know the value of
+//! to progress), an optional PostgreSQL database query statement template and
+//! an evaluation function.
 //!
 //! The evaluation function is given as a wrapped `async` closure - the
 //! [`EvalFn`] component is the wrapper for the closure. This is necessary to
@@ -33,4 +33,4 @@ mod handler;
 
 pub use context::Context;
 pub use eval_fn::EvalFn;
-pub use handler::{FluentHandler, FluentHandlerDefinition, KeyDependency};
+pub use handler::{Handler, HandlerDefinition, KeyDependency};

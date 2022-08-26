@@ -5,8 +5,8 @@
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
 use super::{Context, EvalFn};
-use crate::{fluent::{Fluent, FluentTrait, Key},
-            nodes::{Node, NodeRx, NodeTx}};
+use crate::{app_core::{Node, NodeRx, NodeTx},
+            fluent::{Fluent, FluentTrait, Key}};
 
 use async_trait::async_trait;
 use derivative::Derivative;
@@ -28,8 +28,8 @@ pub enum KeyDependency {
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-/// Allows for ergonomic definition of [`FluentHandler`]s.
-pub struct FluentHandlerDefinition<'a> {
+/// Allows for ergonomic definition of [`Handler`]s.
+pub struct HandlerDefinition<'a> {
   pub fluent_name:    &'a str,
   pub dependencies:   &'a [&'a str],
   pub key_dependency: KeyDependency,
@@ -43,9 +43,8 @@ pub struct FluentHandlerDefinition<'a> {
 #[derivative(Debug)]
 /// A [`Node`] which handles the progression of fluents by subscribing to
 /// dependency fluents and processing incoming values via a evaluation function
-/// to produce an output fluent, publishing this [`Fluent`] to the
-/// [`Broker`](crate::app_core::Broker).
-pub struct FluentHandler {
+/// to produce an output fluent, publishing this [`Fluent`] to the `Broker`.
+pub struct Handler {
   fluent_name:    String,
   dependencies:   Vec<String>,
   key_dependency: KeyDependency,
@@ -57,14 +56,14 @@ pub struct FluentHandler {
   node_ch:        Option<(NodeTx, NodeRx)>,
 }
 
-impl FluentHandler {
-  /// Instantiate a [`FluentHandler`] with the name and dependencies of the
+impl Handler {
+  /// Instantiate a [`Handler`] with the name and dependencies of the
   /// [`Fluent`] it handles, as well as an evaluation function of type
   /// [`EvalFn`] (which is a wrapper struct for a closure).
-  pub async fn new(def: FluentHandlerDefinition<'_>,
+  pub async fn new(def: HandlerDefinition<'_>,
                    buffer_timeout: usize,
                    database_client: Client)
-                   -> Result<FluentHandler> {
+                   -> Result<Handler> {
     let fluent_name = def.fluent_name.to_owned();
     let dependencies = def.dependencies
                           .iter()
@@ -94,8 +93,9 @@ impl FluentHandler {
   pub async fn run(mut self) -> Result<()> {
     let (node_tx, node_rx) = match &mut self.node_ch {
       Some((node_tx, node_rx)) => (node_tx, node_rx),
-      None => bail!("FluentHandler '{}' not initialized, aborting",
-                    self.fluent_name),
+      None => {
+        bail!("Handler '{}' not initialized, aborting", self.fluent_name)
+      }
     };
 
     let fluent_name = self.fluent_name;
@@ -200,7 +200,7 @@ impl FluentHandler {
 }
 
 #[async_trait]
-impl Node for FluentHandler {
+impl Node for Handler {
   fn publishes(&self) -> Vec<String> {
     vec![self.fluent_name.clone()]
   }
@@ -215,8 +215,8 @@ impl Node for FluentHandler {
 }
 
 mod util {
-  use crate::{fluent::{Fluent, FluentTrait, Key, Timestamp},
-              nodes::fluent_handler::KeyDependency};
+  use super::KeyDependency;
+  use crate::fluent::{Fluent, FluentTrait, Key, Timestamp};
 
   use array_tool::vec::{Union, Uniq};
   use itertools::Itertools;

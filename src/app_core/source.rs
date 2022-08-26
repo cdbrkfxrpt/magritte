@@ -17,7 +17,7 @@ use tracing::info;
 
 #[derive(Debug, Deserialize)]
 /// Reads data from the source (i.e. the PostgreSQL database) and publishes it
-/// to the [`Broker`](crate::app_core::Broker) service.
+/// to the [`Broker`](super::broker::Broker) service.
 pub struct Source {
   publishes:    Vec<String>,
   run_params:   RunParams,
@@ -28,13 +28,13 @@ pub struct Source {
 
 impl Source {
   /// Runs the [`Source`], retrieving data from the database and publishing
-  /// fluents to the [`Broker`](crate::app_core::Broker). Consumes the original
+  /// fluents to the [`Broker`](super::broker::Broker). Consumes the original
   /// object.
   ///
   /// Data retrieval is performed using the following SQL:
   ///
   /// ```sql
-  #[doc = include_str!("../sql/source.sql")]
+  #[doc = include_str!("./sql/source.sql")]
   /// ```
   pub async fn run(self, database_client: Option<Client>) -> Result<()> {
     let database_client =
@@ -46,7 +46,7 @@ impl Source {
     };
 
     let statement_raw =
-      format!(include_str!("../sql/source.sql"),
+      format!(include_str!("./sql/source.sql"),
               key_name = self.query_params.key_name,
               timestamp_name = self.query_params.timestamp_name,
               fluent_names = self.publishes.join(", "),

@@ -7,16 +7,19 @@
 //! Contains the core functionality components of `magritte`.
 //!
 //! This includes the [`AppCore`] struct, which sets up and runs the
-//! application, the [`Broker`] struct, which handles message passing from
-//! publishers to subscribers of fluents, the [`Database`] struct and all its
-//! related elements used to interact with the PostgreSQL database and finally
-//! a number of [`util`] components.
+//! application, the [`Broker`](broker::Broker) struct, which handles message
+//! passing from publishers to subscribers of fluents, the [`Database`] struct
+//! and all its related elements used to interact with the PostgreSQL database
+//! and finally a number of [`util`] components.
 
 mod app_core;
 mod broker;
 mod database;
+mod node;
+mod sink;
+mod source;
 pub mod util;
 
 pub use app_core::AppCore;
-pub use broker::Broker;
 pub use database::Database;
+pub use node::{Node, NodeRx, NodeTx};
