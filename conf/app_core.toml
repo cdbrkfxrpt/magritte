@@ -71,7 +71,7 @@ subscribes_to = [
 publishes = ["lon", "lat", "speed"]
 
   [source.run_params]
-  millis_per_cycle = 500
+  millis_per_cycle = 100
   datapoints_to_run = 100000
 
   [source.query_params]

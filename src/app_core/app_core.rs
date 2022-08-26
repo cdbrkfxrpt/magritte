@@ -78,8 +78,8 @@ impl AppCore {
     // initialize and run nodes
     let mut node_tasks = Vec::new();
     for def in include!("../../conf/handler_definitions.rs") {
-      let database_client = database.connect().await?;
-      let mut node = Handler::new(def, buffer_timeout, database_client).await?;
+      let mut node =
+        Handler::new(def, buffer_timeout, database.clone()).await?;
 
       broker.register(&mut node);
 

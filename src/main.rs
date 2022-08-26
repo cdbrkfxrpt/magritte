@@ -19,7 +19,7 @@
 //! by [Florian Eich](mailto:florian.eich@gmail.com).
 
 // crate level attributes
-#![allow(dead_code)] // remove once done
+// #![allow(dead_code)] // remove once done
 #![feature(mutex_unlock)]
 #![feature(box_into_inner)]
 #![feature(downcast_unchecked)]

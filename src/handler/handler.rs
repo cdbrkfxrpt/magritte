@@ -4,8 +4,8 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use super::{Context, EvalFn};
-use crate::{app_core::{Node, NodeRx, NodeTx},
+use super::EvalFn;
+use crate::{app_core::{Database, Node, NodeRx, NodeTx},
             fluent::{Fluent, FluentTrait, Key}};
 
 use async_trait::async_trait;
@@ -13,7 +13,6 @@ use derivative::Derivative;
 use eyre::{bail, Result};
 use std::{collections::BTreeMap,
           sync::{Arc, Mutex}};
-use tokio_postgres::Client;
 use tokio_stream::StreamExt;
 use tracing::debug;
 
@@ -48,9 +47,9 @@ pub struct Handler {
   fluent_name:    String,
   dependencies:   Vec<String>,
   key_dependency: KeyDependency,
-  context:        Context,
   #[derivative(Debug = "ignore")]
   eval_fn:        EvalFn,
+  database:       Database,
   deps_buffer:    BTreeMap<Vec<Key>, Vec<Fluent>>,
   buffer_timeout: usize,
   node_ch:        Option<(NodeTx, NodeRx)>,
@@ -62,7 +61,7 @@ impl Handler {
   /// [`EvalFn`] (which is a wrapper struct for a closure).
   pub async fn new(def: HandlerDefinition<'_>,
                    buffer_timeout: usize,
-                   database_client: Client)
+                   database: Database)
                    -> Result<Handler> {
     let fluent_name = def.fluent_name.to_owned();
     let dependencies = def.dependencies
@@ -70,16 +69,16 @@ impl Handler {
                           .map(|e| e.to_string())
                           .collect::<Vec<_>>();
     let key_dependency = def.key_dependency;
-    let context = Context::new(database_client, def.database_query).await?;
     let eval_fn = def.eval_fn;
+    let database = database.with_template_option(def.database_query);
     let deps_buffer = BTreeMap::new();
     let node_ch = None;
 
     Ok(Self { fluent_name,
               dependencies,
               key_dependency,
-              context,
               eval_fn,
+              database,
               deps_buffer,
               buffer_timeout,
               node_ch })
@@ -100,7 +99,7 @@ impl Handler {
 
     let fluent_name = self.fluent_name;
     let eval_fn = self.eval_fn.into_inner();
-    let context = self.context.arc_ptr();
+    let database = self.database;
     let history = Arc::new(Mutex::new(Vec::<Fluent>::new()));
 
     while let Some((name, Ok(fluent))) = node_rx.next().await {
@@ -164,17 +163,16 @@ impl Handler {
       for (dep_keys, dependencies) in dependency_sets.into_iter() {
         let fluent_name = fluent_name.clone();
         let node_tx = node_tx.clone();
-        let context = context.clone();
+        let database = database.clone();
         let eval_fn = eval_fn.clone();
         let history_mtx = history_mtx.clone();
 
         tokio::spawn(async move {
           // we've got all the dependencies now - feed them into the eval_fn
-          let value =
-            match eval_fn(dependencies.clone(), context.clone()).await {
-              Some(value) => value,
-              None => return,
-            };
+          let value = match eval_fn(dependencies.clone(), database).await {
+            Some(value) => value,
+            None => return,
+          };
 
           let mut history = history_mtx.lock().unwrap();
           let fluent = match history.iter_mut().find(|f| f.keys() == dep_keys)

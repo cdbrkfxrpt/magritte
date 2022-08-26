@@ -4,13 +4,17 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
+use crate::fluent::ValueType;
+
 use eyre::Result;
 use serde::Deserialize;
+use std::time::Duration;
+use tokio::time;
 use tokio_postgres as tp;
-use tracing::error;
+use tracing::{error, info};
 
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 /// "Singleton" used to establish database connections from one single place
 /// and spawn database request handlers.
 pub struct Database {
@@ -18,6 +22,8 @@ pub struct Database {
   user:     String,
   password: String,
   dbname:   String,
+  #[serde(skip)]
+  template: String,
 }
 
 impl Database {
@@ -39,6 +45,44 @@ impl Database {
 
     Ok(client)
   }
+
+  /// Set the query template for this instance.
+  pub fn with_template_option(mut self, template: Option<&str>) -> Self {
+    if let Some(template) = template {
+      self.template = template.to_string();
+    }
+    self
+  }
+
+  /// Query the database using the statement template. Queries must return
+  /// exactly one value in exactly one row for this to return `Ok(T)`.
+  pub async fn query<T>(&self,
+                        params: &[&(dyn tp::types::ToSql + Sync)])
+                        -> Option<T>
+    where T: ValueType + for<'a> tp::types::FromSql<'a>
+  {
+    if self.template.is_empty() {
+      return None;
+    }
+
+    let client = self.connect().await.ok()?;
+    let query_future = client.query_one(&self.template, params);
+    let row =
+      match time::timeout(Duration::from_millis(150), query_future).await {
+        Ok(query_result) => query_result.ok()?,
+        Err(_) => {
+          info!("database query timed out");
+          return None;
+        }
+      };
+
+    if row.len() != 1 {
+      info!("database query returned more than one value");
+      return None;
+    }
+
+    Some(row.get::<usize, T>(0))
+  }
 }
 
 // fin --------------------------------------------------------------------- //
@@ -57,17 +101,20 @@ mod tests {
     let user = String::from("neo");
     let password = String::from("trinity");
     let dbname = String::from("nebukadnezar");
+    let template = String::from("select * from bla");
 
     let dbc = Database { host:     host.clone(),
                          user:     user.clone(),
                          password: password.clone(),
-                         dbname:   dbname.clone(), };
+                         dbname:   dbname.clone(),
+                         template: template.clone(), };
 
     // "dumb" tests
     assert_eq!(dbc.host, host);
     assert_eq!(dbc.user, user);
     assert_eq!(dbc.password, password);
     assert_eq!(dbc.dbname, dbname);
+    assert_eq!(dbc.template, template);
 
     let match_str = indoc! {r#"
       Database {
@@ -75,6 +122,7 @@ mod tests {
           user: "neo",
           password: "trinity",
           dbname: "nebukadnezar",
+          template: "select * from bla",
       }"#};
 
     assert_eq!(format!("{:#?}", dbc), match_str);

@@ -59,11 +59,11 @@
       limit 1
     "#}),
     eval_fn: EvalFn::specify(Arc::new(
-      |fluents, context| async move {
+      |fluents, database| async move {
         let (lon, lat) = fluents.get(0)?.value::<(f64, f64)>();
 
-        let distance_from_coast = context.database_query::<f64>(&[&lon, &lat])
-                                         .await?;
+        let distance_from_coast = database.query::<f64>(&[&lon, &lat])
+                                          .await?;
 
         usr::return_value(distance_from_coast)
       }.boxed()
@@ -208,9 +208,9 @@
       limit 1
     "#}),
     eval_fn: EvalFn::specify(Arc::new(
-      |fluents, context| async move {
+      |fluents, database| async move {
         let key = fluents.get(0)?.keys().get(0)?.to_owned() as i32;
-        let ship_type = context.database_query::<i32>(&[&key]).await?;
+        let ship_type = database.query::<i32>(&[&key]).await?;
 
         // Vessel Type Codes:
         // - 30: Fishing
@@ -255,11 +255,11 @@
       limit 1
     "#}),
     eval_fn: EvalFn::specify(Arc::new(
-      |fluents, context| async move {
+      |fluents, database| async move {
         let (lon, lat) = fluents.get(0)?.value::<(f64, f64)>();
 
-        let distance_from_ports = context.database_query::<f64>(&[&lon, &lat])
-                                         .await?;
+        let distance_from_ports = database.query::<f64>(&[&lon, &lat])
+                                          .await?;
 
         usr::return_value(distance_from_ports)
       }.boxed()

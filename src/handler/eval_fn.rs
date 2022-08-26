@@ -4,8 +4,8 @@
 // received a copy of this license along with the source code. If that is not
 // the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-use super::Context;
-use crate::fluent::{Fluent, ValueType};
+use crate::{app_core::Database,
+            fluent::{Fluent, ValueType}};
 
 use futures::future::BoxFuture;
 use std::sync::Arc;
@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 /// Helper type for the closure objects stored in the [`EvalFn`] struct.
 type FnType<'a> = Arc<dyn (Fn(Vec<Fluent>,
-                           Arc<Context>)
+                           Database)
                            -> BoxFuture<'a, Option<Box<dyn ValueType>>>)
                         + Send
                         + Sync>;

@@ -21,16 +21,11 @@
 //! satisfy trait and lifetime bounds of the closure whilst maintaining an
 //! ergonomic way of providing an evaluation function to the user.
 //!
-//! Finally, [`Context`] is a helper struct containing run time properties
-//! required by the user in the evaluation function. Crucially, this includes a
-//! prepared database connection (if a template query statement was provided)
-//! which requires only the input of query parameters. To understand usage, see
-//! the example definitions in the `conf/fluent_handlers.rs` file of the repo.
+//! To understand usage, see the example definitions in the
+//! `conf/fluent_handlers.rs` file of the repo.
 
-mod context;
 mod eval_fn;
 mod handler;
 
-pub use context::Context;
 pub use eval_fn::EvalFn;
 pub use handler::{Handler, HandlerDefinition, KeyDependency};
