@@ -41,7 +41,7 @@ impl DatabaseContext {
   {
     let query_future = self.client.query_one(&self.statement, params);
     let row =
-      match time::timeout(Duration::from_millis(80), query_future).await {
+      match time::timeout(Duration::from_millis(150), query_future).await {
         Ok(query_result) => query_result.ok()?,
         Err(_) => {
           info!("database query timed out");

@@ -11,7 +11,8 @@ use crate::{fluent::{Fluent, FluentTrait, Key},
 use async_trait::async_trait;
 use derivative::Derivative;
 use eyre::{bail, Result};
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap,
+          sync::{Arc, Mutex}};
 use tokio_postgres::Client;
 use tokio_stream::StreamExt;
 use tracing::debug;
@@ -34,7 +35,7 @@ pub struct FluentHandlerDefinition<'a> {
   pub key_dependency: KeyDependency,
   pub database_query: Option<&'a str>,
   #[derivative(Debug = "ignore")]
-  pub eval_fn:        EvalFn<'a>,
+  pub eval_fn:        EvalFn,
 }
 
 
@@ -44,24 +45,23 @@ pub struct FluentHandlerDefinition<'a> {
 /// dependency fluents and processing incoming values via a evaluation function
 /// to produce an output fluent, publishing this [`Fluent`] to the
 /// [`Broker`](crate::app_core::Broker).
-pub struct FluentHandler<'a> {
+pub struct FluentHandler {
   fluent_name:    String,
   dependencies:   Vec<String>,
   key_dependency: KeyDependency,
   context:        Context,
   #[derivative(Debug = "ignore")]
-  eval_fn:        EvalFn<'a>,
+  eval_fn:        EvalFn,
   deps_buffer:    BTreeMap<Vec<Key>, Vec<Fluent>>,
   buffer_timeout: usize,
-  history:        Vec<Fluent>,
   node_ch:        Option<(NodeTx, NodeRx)>,
 }
 
-impl<'a> FluentHandler<'a> {
+impl FluentHandler {
   /// Instantiate a [`FluentHandler`] with the name and dependencies of the
   /// [`Fluent`] it handles, as well as an evaluation function of type
   /// [`EvalFn`] (which is a wrapper struct for a closure).
-  pub async fn new(def: FluentHandlerDefinition<'a>,
+  pub async fn new(def: FluentHandlerDefinition<'_>,
                    buffer_timeout: usize,
                    database_client: Client)
                    -> Result<FluentHandler> {
@@ -74,7 +74,6 @@ impl<'a> FluentHandler<'a> {
     let context = Context::new(database_client, def.database_query).await?;
     let eval_fn = def.eval_fn;
     let deps_buffer = BTreeMap::new();
-    let history = Vec::new();
     let node_ch = None;
 
     Ok(Self { fluent_name,
@@ -84,7 +83,6 @@ impl<'a> FluentHandler<'a> {
               eval_fn,
               deps_buffer,
               buffer_timeout,
-              history,
               node_ch })
   }
 
@@ -100,22 +98,27 @@ impl<'a> FluentHandler<'a> {
                     self.fluent_name),
     };
 
+    let fluent_name = self.fluent_name;
     let eval_fn = self.eval_fn.into_inner();
     let context = self.context.arc_ptr();
+    let history = Arc::new(Mutex::new(Vec::<Fluent>::new()));
 
     while let Some((name, Ok(fluent))) = node_rx.next().await {
       let keys = fluent.keys().to_vec();
       let timestamp = fluent.timestamp();
+      let history_mtx = history.clone();
 
       // if we have a static key dependency - in other words, if this value
       // never changes for one key and thus needs to be calculated only once -
       // look it up in the history and if we have it, return it from there with
       // an updated timestamp and skip the remainder of the loop
       if self.key_dependency == KeyDependency::Static {
+        // unwrap here is safe: locking `Mutex` cannot fail
+        let mut history = history_mtx.lock().unwrap();
         if let Some(history_fluent) =
-          self.history.iter_mut().find(|f| f.keys() == keys)
+          history.iter_mut().find(|f| f.keys() == keys)
         {
-          debug!("updating and sending '{}' from history", self.fluent_name);
+          debug!("updating and sending '{}' from history", fluent_name);
           history_fluent.update(timestamp, history_fluent.boxed_value());
           node_tx.send(history_fluent.clone())?;
           continue;
@@ -155,32 +158,41 @@ impl<'a> FluentHandler<'a> {
                                                   timestamp,
                                                   &self.dependencies,
                                                   &self.key_dependency);
-      debug!("{:24} dependency sets: {:?}",
-             self.fluent_name, dependency_sets);
+      debug!("{:24} dependency sets: {:?}", fluent_name, dependency_sets);
       // continue;
 
       for (dep_keys, dependencies) in dependency_sets.into_iter() {
-        // we've got all the dependencies now - feed them into the eval_fn
-        let value = match eval_fn(dependencies.clone(), context.clone()).await
-        {
-          Some(value) => value,
-          None => continue,
-        };
+        let fluent_name = fluent_name.clone();
+        let node_tx = node_tx.clone();
+        let context = context.clone();
+        let eval_fn = eval_fn.clone();
+        let history_mtx = history_mtx.clone();
 
-        let fluent =
-          match self.history.iter_mut().find(|f| f.keys() == dep_keys) {
+        tokio::spawn(async move {
+          // we've got all the dependencies now - feed them into the eval_fn
+          let value =
+            match eval_fn(dependencies.clone(), context.clone()).await {
+              Some(value) => value,
+              None => return,
+            };
+
+          let mut history = history_mtx.lock().unwrap();
+          let fluent = match history.iter_mut().find(|f| f.keys() == dep_keys)
+          {
             Some(fluent) => {
               fluent.update(timestamp, value);
               fluent.clone()
             }
             None => {
               let fluent =
-                Fluent::new(&self.fluent_name, &dep_keys, timestamp, value);
-              self.history.push(fluent.clone());
+                Fluent::new(&fluent_name, &dep_keys, timestamp, value);
+              history.push(fluent.clone());
               fluent
             }
           };
-        node_tx.send(fluent)?;
+          node_tx.send(fluent)
+                 .expect("unable to send fluent to broker");
+        });
       }
     }
     Ok(())
@@ -188,7 +200,7 @@ impl<'a> FluentHandler<'a> {
 }
 
 #[async_trait]
-impl<'a> Node for FluentHandler<'a> {
+impl Node for FluentHandler {
   fn publishes(&self) -> Vec<String> {
     vec![self.fluent_name.clone()]
   }

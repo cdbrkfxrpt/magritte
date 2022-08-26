@@ -18,7 +18,7 @@ use eyre::Result;
 use futures::future::FutureExt;
 use indoc::indoc;
 use serde::Deserialize;
-use std::fs;
+use std::{fs, sync::Arc};
 use tracing::{debug, info};
 
 
@@ -79,9 +79,10 @@ impl AppCore {
     // initialize and run nodes
     let mut node_tasks = Vec::new();
     for def in include!("../../conf/fluent_handlers.rs") {
-      let mut node = FluentHandler::new(def,
-                                        buffer_timeout,
-                                        database.connect().await?).await?;
+      let database_client = database.connect().await?;
+      let mut node =
+        FluentHandler::new(def, buffer_timeout, database_client).await?;
+
       broker.register(&mut node);
 
       let task = tokio::spawn(async move {

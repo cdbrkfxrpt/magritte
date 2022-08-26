@@ -4,7 +4,7 @@
     dependencies: &["high_speed", "near_coast"],
     key_dependency: KeyDependency::Concurrent,
     database_query: None,
-    eval_fn: EvalFn::specify(Box::new(
+    eval_fn: EvalFn::specify(Arc::new(
       |fluents, _| async move {
         let high_speed = fluents.get(0)?.value::<bool>();
         let near_coast = fluents.get(1)?.value::<bool>();
@@ -18,7 +18,7 @@
     dependencies: &["speed"],
     key_dependency: KeyDependency::Concurrent,
     database_query: None,
-    eval_fn: EvalFn::specify(Box::new(
+    eval_fn: EvalFn::specify(Arc::new(
       |fluents, _| async move {
         let speed_fluent = fluents.get(0)?;
 
@@ -38,7 +38,7 @@
     dependencies: &["distance_from_coast"],
     key_dependency: KeyDependency::Concurrent,
     database_query: None,
-    eval_fn: EvalFn::specify(Box::new(
+    eval_fn: EvalFn::specify(Arc::new(
       |fluents, _| async move {
         let distance_from_coast = fluents.get(0)?.value::<f64>();
         usr::return_value(distance_from_coast <= 300.0)
@@ -58,7 +58,7 @@
       from magritte.europe_coastline
       limit 1
     "#}),
-    eval_fn: EvalFn::specify(Box::new(
+    eval_fn: EvalFn::specify(Arc::new(
       |fluents, context| async move {
         let (lon, lat) = fluents.get(0)?.value::<(f64, f64)>();
 
@@ -74,7 +74,7 @@
     dependencies: &["proximity" ,"rendez_vous_candidates"],
     key_dependency: KeyDependency::Concurrent,
     database_query: None,
-    eval_fn: EvalFn::specify(Box::new(
+    eval_fn: EvalFn::specify(Arc::new(
       |fluents, _| async move {
         let proximity = fluents.get(0)?.value::<bool>();
         let rendez_vous_candidates = fluents.get(1)?.value::<bool>();
@@ -88,7 +88,7 @@
     dependencies: &["distance"],
     key_dependency: KeyDependency::Concurrent,
     database_query: None,
-    eval_fn: EvalFn::specify(Box::new(
+    eval_fn: EvalFn::specify(Arc::new(
       |fluents, _| async move {
         let distance = fluents.get(0)?.value::<f64>();
         usr::return_value(distance <= 100.0)
@@ -100,7 +100,7 @@
     dependencies: &["location"],
     key_dependency: KeyDependency::NonConcurrent { timeout: 600 },
     database_query: None,
-    eval_fn: EvalFn::specify(Box::new(
+    eval_fn: EvalFn::specify(Arc::new(
       |fluents, _| async move {
         let (lon_a, lat_a) = fluents.get(0)?.value::<(f64, f64)>();
         let (lon_b, lat_b) = fluents.get(1)?.value::<(f64, f64)>();
@@ -135,7 +135,7 @@
     dependencies: &["lon", "lat"],
     key_dependency: KeyDependency::Concurrent,
     database_query: None,
-    eval_fn: EvalFn::specify(Box::new(
+    eval_fn: EvalFn::specify(Arc::new(
       |fluents, _| async move {
         let lon = fluents.get(0)?.value::<f64>();
         let lat = fluents.get(1)?.value::<f64>();
@@ -149,7 +149,7 @@
     dependencies: &["rendez_vous_conditions"],
     key_dependency: KeyDependency::NonConcurrent { timeout: 1800 },
     database_query: None,
-    eval_fn: EvalFn::specify(Box::new(
+    eval_fn: EvalFn::specify(Arc::new(
       |fluents, _| async move {
         let lhs_is_candidate = fluents.get(0)?.value::<bool>();
         let rhs_is_candidate = fluents.get(1)?.value::<bool>();
@@ -168,7 +168,7 @@
     ],
     key_dependency: KeyDependency::Concurrent,
     database_query: None,
-    eval_fn: EvalFn::specify(Box::new(
+    eval_fn: EvalFn::specify(Arc::new(
       |fluents, _| async move {
         let stopped_or_low_speed = fluents.get(0)?.value::<bool>();
         let is_tug_or_pilot = fluents.get(1)?.value::<bool>();
@@ -189,7 +189,7 @@
     dependencies: &["speed"],
     key_dependency: KeyDependency::Concurrent,
     database_query: None,
-    eval_fn: EvalFn::specify(Box::new(
+    eval_fn: EvalFn::specify(Arc::new(
       |fluents, _| async move {
         let speed = fluents.get(0)?.value::<f64>();
         usr::return_value(speed <= 5.0)
@@ -207,7 +207,7 @@
       where sourcemmsi = $1
       limit 1
     "#}),
-    eval_fn: EvalFn::specify(Box::new(
+    eval_fn: EvalFn::specify(Arc::new(
       |fluents, context| async move {
         let key = fluents.get(0)?.keys().get(0)?.to_owned() as i32;
         let ship_type = context.database_query::<i32>(&[&key]).await?;
@@ -233,7 +233,7 @@
     dependencies: &["distance_from_ports"],
     key_dependency: KeyDependency::Concurrent,
     database_query: None,
-    eval_fn: EvalFn::specify(Box::new(
+    eval_fn: EvalFn::specify(Arc::new(
       |fluents, _| async move {
         let distance_from_ports = fluents.get(0)?.value::<f64>();
         usr::return_value(distance_from_ports <= 300.0)
@@ -254,7 +254,7 @@
       order by distance
       limit 1
     "#}),
-    eval_fn: EvalFn::specify(Box::new(
+    eval_fn: EvalFn::specify(Arc::new(
       |fluents, context| async move {
         let (lon, lat) = fluents.get(0)?.value::<(f64, f64)>();
 
@@ -270,7 +270,7 @@
     dependencies: &["instant", "high_speed_near_coast"],
     key_dependency: KeyDependency::Concurrent,
     database_query: None,
-    eval_fn: EvalFn::specify(Box::new(
+    eval_fn: EvalFn::specify(Arc::new(
       |fluents, _| async move {
         let instant = fluents.get(0)?.value::<std::time::Instant>();
         usr::return_value(instant.elapsed().as_micros() as i64)
@@ -282,7 +282,7 @@
     dependencies: &["instant"],
     key_dependency: KeyDependency::NonConcurrent { timeout: 30 },
     database_query: None,
-    eval_fn: EvalFn::specify(Box::new(
+    eval_fn: EvalFn::specify(Arc::new(
       |fluents, _| async move {
         let lhs = fluents.get(0)?.value::<std::time::Instant>();
         let rhs = fluents.get(1)?.value::<std::time::Instant>();
@@ -296,7 +296,7 @@
     dependencies: &["instant_split", "rendez_vous"],
     key_dependency: KeyDependency::Concurrent,
     database_query: None,
-    eval_fn: EvalFn::specify(Box::new(
+    eval_fn: EvalFn::specify(Arc::new(
       |fluents, _| async move {
         let instant = fluents.get(0)?.value::<std::time::Instant>();
         usr::return_value(instant.elapsed().as_micros() as i64)

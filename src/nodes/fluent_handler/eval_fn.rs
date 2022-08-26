@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 
 /// Helper type for the closure objects stored in the [`EvalFn`] struct.
-type FnType<'a> = Box<dyn (Fn(Vec<Fluent>,
+type FnType<'a> = Arc<dyn (Fn(Vec<Fluent>,
                            Arc<Context>)
                            -> BoxFuture<'a, Option<Box<dyn ValueType>>>)
                         + Send
@@ -20,19 +20,19 @@ type FnType<'a> = Box<dyn (Fn(Vec<Fluent>,
 
 
 /// Wrapper struct for closures which are used to evaluate fluents.
-pub struct EvalFn<'a> {
-  f: FnType<'a>,
+pub struct EvalFn {
+  f: FnType<'static>,
 }
 
-impl<'a> EvalFn<'a> {
+impl EvalFn {
   /// Constructor function named in this way for better readability in the user
   /// defined code section, i.e. `EvalFn::specify(/* ... /*)` is deemed _more
   /// obvious_ in terms of naming than, say, `EvalFn::new(/* ... */)` would be.
-  pub fn specify(f: FnType<'a>) -> Self {
+  pub fn specify(f: FnType<'static>) -> Self {
     Self { f }
   }
 
-  pub fn into_inner(self) -> FnType<'a> {
+  pub fn into_inner(self) -> FnType<'static> {
     self.f
   }
 }
