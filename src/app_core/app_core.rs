@@ -23,6 +23,8 @@ use tracing::{debug, info};
 
 #[derive(Debug, Deserialize)]
 /// Deserialized from config file. Initializes core elements of `magritte`.
+/// From here, all core elements and fluent [`Handler`]s are initialized and
+/// put into operation via the `run` method.
 pub struct AppCore {
   database:       Database,
   broker:         Broker,

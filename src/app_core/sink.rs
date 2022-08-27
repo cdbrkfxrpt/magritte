@@ -46,12 +46,8 @@ impl Sink {
 
     while let Some((_, Ok(fluent))) = node_rx.next().await {
       info!("Sink received: {:?}", fluent);
-      if self.debug {
-        continue;
-      }
-
       // write only Boolean fluents to database
-      if !matches!(fluent, Fluent::Boolean(_)) {
+      if self.debug || !matches!(fluent, Fluent::Boolean(_)) {
         continue;
       }
 
@@ -64,8 +60,11 @@ impl Sink {
       let args = sqlvec![&name, &keys, &timestamp, &value, &last_change];
       let write_future = database_client.execute(sql_raw, args.as_slice());
 
-      match time::timeout(timeout, write_future).await? {
-        Ok(rows_affected) => debug!("{} rows affected", rows_affected),
+      match time::timeout(timeout, write_future).await {
+        Ok(result) => match result {
+          Ok(rows_affected) => debug!("{} rows affected", rows_affected),
+          Err(_) => info!("unable to write to database"),
+        },
         Err(_) => info!("database write timed out"),
       }
     }

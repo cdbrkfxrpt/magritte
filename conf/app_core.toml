@@ -22,45 +22,40 @@ dbname = "doi105281zenodo1167595"
 # write_timeout = 80
 # subscribes_to = ["lon", "lat", "location"]
 
-# [[sinks]]
-# debug = true
-# write_timeout = 80
-# subscribes_to = [
-#   "high_speed",
-#   "near_coast",
-#   "high_speed_near_coast"
-# ]
+[[sinks]]
+debug = false
+write_timeout = 150
+subscribes_to = [
+  "high_speed",
+  "near_coast",
+  "high_speed_near_coast"
+]
+
+[[sinks]]
+debug = false
+write_timeout = 150
+subscribes_to = [
+  "stopped_or_low_speed",
+  "proximity",
+  "near_ports",
+  "rendez_vous"
+]
 
 # [[sinks]]
 # debug = true
 # write_timeout = 80
 # subscribes_to = [
-#   "proximity",
-#   "distance"
-# ]
-
-# [[sinks]]
-# debug = true
-# write_timeout = 80
-# subscribes_to = [
+#   "rendez_vous_candidates",
+#   "rendez_vous_conditions",
 #   "stopped_or_low_speed",
 #   "near_coast",
 #   "near_ports",
 #   "is_tug_or_pilot"
 # ]
 
-# [[sinks]]
-# debug = true
-# write_timeout = 80
-# subscribes_to = [
-#   "rendez_vous",
-#   "rendez_vous_candidates",
-#   "rendez_vous_conditions"
-# ]
-
 [[sinks]]
 debug = true
-write_timeout = 80
+write_timeout = 100
 subscribes_to = [
   "high_speed_near_coast_runtime",
   "rendez_vous_runtime"
@@ -71,7 +66,7 @@ subscribes_to = [
 publishes = ["lon", "lat", "speed"]
 
   [source.run_params]
-  millis_per_cycle = 100
+  millis_per_cycle = 250
   datapoints_to_run = 100000
 
   [source.query_params]

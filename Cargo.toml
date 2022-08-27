@@ -7,8 +7,8 @@
 [package]
 name = "magritte"
 description = "Ceci n'est pas une pipe"
-version = "0.1.0"
-authors = ["Florian Eich <florian@bmc-labs.com>"]
+version = "1.0.0"
+authors = ["Florian Eich <florian.eich@gmail.com>"]
 edition = "2021"
 
 

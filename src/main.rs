@@ -19,8 +19,6 @@
 //! by [Florian Eich](mailto:florian.eich@gmail.com).
 
 // crate level attributes
-// #![allow(dead_code)] // remove once done
-#![feature(mutex_unlock)]
 #![feature(box_into_inner)]
 #![feature(downcast_unchecked)]
 #![feature(let_else)]
@@ -48,11 +46,14 @@ enum ShutdownCause {
 }
 
 
+// auto mode - runs as many workers as the system has cores:
+#[tokio::main]
+// defined mode - specify from 1 to x how many workers should be run:
 // #[tokio::main(flavor = "current_thread")]
 // #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 // #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 // #[tokio::main(flavor = "multi_thread", worker_threads = 8)]
-#[tokio::main(flavor = "multi_thread", worker_threads = 16)]
+// #[tokio::main(flavor = "multi_thread", worker_threads = 16)]
 /// Application entry point. Sets up core services and runs the application.
 async fn main() -> Result<()> {
   setup()?;
