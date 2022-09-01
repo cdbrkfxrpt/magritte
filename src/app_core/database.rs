@@ -68,7 +68,7 @@ impl Database {
     let client = self.connect().await.ok()?;
     let query_future = client.query_one(&self.template, params);
     let row =
-      match time::timeout(Duration::from_millis(150), query_future).await {
+      match time::timeout(Duration::from_millis(250), query_future).await {
         Ok(query_result) => query_result.ok()?,
         Err(_) => {
           info!("database query timed out");

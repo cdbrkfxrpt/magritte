@@ -14,6 +14,18 @@
     )),
   },
   HandlerDefinition {
+    fluent_name: "high_speed_near_coast_timer",
+    dependencies: &["instant", "high_speed_near_coast"],
+    key_dependency: KeyDependency::Concurrent,
+    database_query: None,
+    eval_fn: EvalFn::specify(Arc::new(
+      |fluents, _| async move {
+        let instant = fluents.get(0)?.value::<std::time::Instant>();
+        usr::return_value(instant.elapsed().as_micros() as i64)
+      }.boxed()
+    ))
+  },
+  HandlerDefinition {
     fluent_name: "high_speed",
     dependencies: &["speed"],
     key_dependency: KeyDependency::Concurrent,
@@ -58,6 +70,18 @@
     )),
   },
   HandlerDefinition {
+    fluent_name: "near_coast_timer",
+    dependencies: &["instant", "near_coast"],
+    key_dependency: KeyDependency::Concurrent,
+    database_query: None,
+    eval_fn: EvalFn::specify(Arc::new(
+      |fluents, _| async move {
+        let instant = fluents.get(0)?.value::<std::time::Instant>();
+        usr::return_value(instant.elapsed().as_micros() as i64)
+      }.boxed()
+    ))
+  },
+  HandlerDefinition {
     fluent_name: "distance_from_coast",
     dependencies: &["location"],
     key_dependency: KeyDependency::Concurrent,
@@ -80,18 +104,6 @@
         usr::return_value(distance_from_coast)
       }.boxed()
     )),
-  },
-  HandlerDefinition {
-    fluent_name: "high_speed_near_coast_timer",
-    dependencies: &["instant", "high_speed_near_coast"],
-    key_dependency: KeyDependency::Concurrent,
-    database_query: None,
-    eval_fn: EvalFn::specify(Arc::new(
-      |fluents, _| async move {
-        let instant = fluents.get(0)?.value::<std::time::Instant>();
-        usr::return_value(instant.elapsed().as_micros() as i64)
-      }.boxed()
-    ))
   },
   HandlerDefinition {
     fluent_name: "rendez_vous",
@@ -118,6 +130,18 @@
         )
       }.boxed()
     )),
+  },
+  HandlerDefinition {
+    fluent_name: "rendez_vous_timer",
+    dependencies: &["instant_keypair", "rendez_vous"],
+    key_dependency: KeyDependency::Concurrent,
+    database_query: None,
+    eval_fn: EvalFn::specify(Arc::new(
+      |fluents, _| async move {
+        let instant = fluents.get(0)?.value::<std::time::Instant>();
+        usr::return_value(instant.elapsed().as_micros() as i64)
+      }.boxed()
+    ))
   },
   HandlerDefinition {
     fluent_name: "proximity",
@@ -277,6 +301,18 @@
     )),
   },
   HandlerDefinition {
+    fluent_name: "is_tug_or_pilot_timer",
+    dependencies: &["instant", "is_tug_or_pilot"],
+    key_dependency: KeyDependency::Concurrent,
+    database_query: None,
+    eval_fn: EvalFn::specify(Arc::new(
+      |fluents, _| async move {
+        let instant = fluents.get(0)?.value::<std::time::Instant>();
+        usr::return_value(instant.elapsed().as_micros() as i64)
+      }.boxed()
+    ))
+  },
+  HandlerDefinition {
     fluent_name: "near_ports",
     dependencies: &["distance_from_ports"],
     key_dependency: KeyDependency::Concurrent,
@@ -324,18 +360,6 @@
         let rhs = fluents.get(1)?.value::<std::time::Instant>();
 
         usr::return_value(std::cmp::max(lhs, rhs))
-      }.boxed()
-    )),
-  },
-  HandlerDefinition {
-    fluent_name: "rendez_vous_timer",
-    dependencies: &["instant_keypair", "rendez_vous"],
-    key_dependency: KeyDependency::Concurrent,
-    database_query: None,
-    eval_fn: EvalFn::specify(Arc::new(
-      |fluents, _| async move {
-        let instant = fluents.get(0)?.value::<std::time::Instant>();
-        usr::return_value(instant.elapsed().as_micros() as i64)
       }.boxed()
     )),
   },

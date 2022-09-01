@@ -79,6 +79,10 @@ impl Source {
                                                &[&(time as i64)])
                                         .await
     {
+      if !rows.is_empty() {
+        // print number of rows --> "simultaneous data points"
+        println!("data_points,{}", rows.len());
+      }
       for row in rows {
         key = row.get::<&str, i32>("key") as usize;
 

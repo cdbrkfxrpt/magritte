@@ -53,7 +53,17 @@ impl Sink {
     while let Some((_, Ok(fluent))) = node_rx.next().await {
       // write only Boolean fluents to database
       if self.debug || !matches!(fluent, Fluent::Boolean(_)) {
-        // info!("{}: {:?}", fluent.name(), fluent.boxed_value());
+        if self.write_timeout == 0 {
+          println!("{},{},{},{:?}",
+                   fluent.name(),
+                   fluent.keys()
+                         .iter()
+                         .map(|k| format!("{}", k))
+                         .collect::<Vec<_>>()
+                         .join("|"),
+                   fluent.timestamp(),
+                   fluent.boxed_value());
+        }
         continue;
       }
 
