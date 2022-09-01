@@ -15,6 +15,10 @@ use tokio_postgres::Client;
 use tracing::info;
 
 
+const BIG_BANG: usize = 1_443_650_400;
+const ARMAGEDDON: usize = 1_459_461_599;
+
+
 #[derive(Debug, Deserialize)]
 /// Reads data from the source (i.e. the PostgreSQL database) and publishes it
 /// to the [`Broker`](super::broker::Broker) service.
@@ -45,67 +49,62 @@ impl Source {
       None => bail!("Source not initialized, aborting"),
     };
 
-    let statement_raw =
+    let query_statement_raw =
       format!(include_str!("./sql/source.sql"),
               key_name = self.query_params.key_name,
               timestamp_name = self.query_params.timestamp_name,
               fluent_names = self.publishes.join(", "),
               from_table = self.query_params.from_table,
-              order_by = self.query_params.order_by,
-              rows_to_fetch = self.query_params.rows_to_fetch);
+              order_by = self.query_params.order_by);
 
-    let statement = match database_client.prepare(&statement_raw).await {
-      Ok(statement) => statement,
-      Err(err) => {
-        // drop(self.fluent_tx);
-        panic!("Error in Feeder PostgreSQL query: {}", err);
-      }
-    };
+    let query_statement =
+      match database_client.prepare(&query_statement_raw).await {
+        Ok(statement) => statement,
+        Err(err) => {
+          // drop(self.fluent_tx);
+          panic!("Error in Source PostgreSQL query: {}", err);
+        }
+      };
+
     info!("SQL statement prepared");
 
     let mut interval =
       time::interval(time::Duration::from_millis(self.run_params
                                                      .millis_per_cycle));
 
-    let mut time: usize = 1443650400;
-    let mut offset: usize = 0;
-
+    let mut time: usize = BIG_BANG + self.run_params.starting_offset;
     let mut key: usize;
-    let mut timestamp: usize;
 
-    while let Ok(rows) =
-      database_client.query(&statement, &[&(offset as i64)]).await
+    while let Ok(rows) = database_client.query(&query_statement,
+                                               &[&(time as i64)])
+                                        .await
     {
       for row in rows {
         key = row.get::<&str, i32>("key") as usize;
-        timestamp = row.get::<&str, i64>("timestamp") as usize;
 
-        if timestamp <= time {
-          node_tx.send(Fluent::new("instant",
-                                   &[key],
-                                   timestamp,
-                                   Box::new(Instant::now())))?;
+        node_tx.send(Fluent::new("instant",
+                                 &[key],
+                                 time,
+                                 Box::new(Instant::now())))?;
 
-          for fluent_name in self.publishes.iter() {
-            let value: f64 = row.get(fluent_name.as_str());
-            let fluent =
-              Fluent::new(&fluent_name, &[key], timestamp, Box::new(value));
+        for fluent_name in self.publishes.iter() {
+          let value: f64 = row.get(fluent_name.as_str());
+          let fluent =
+            Fluent::new(&fluent_name, &[key], time, Box::new(value));
 
-            node_tx.send(fluent)?;
-          }
-          offset += 1;
-
-          info!("ran {} datapoints", offset);
-          if self.run_params.datapoints_to_run > 0
-             && offset == self.run_params.datapoints_to_run
-          {
-            info!("reached limit of datapoints to run ({})",
-                  self.run_params.datapoints_to_run);
-            return Ok(());
-          }
+          node_tx.send(fluent)?;
         }
       }
       time += 1;
+
+      if self.run_params.hours_to_run > 0
+         && (time == BIG_BANG + self.run_params.hours_to_run * 3_600
+             || time == ARMAGEDDON)
+      {
+        info!("ran requested timeframe ({} hours) or reached end of data",
+              self.run_params.hours_to_run);
+        return Ok(());
+      }
 
       interval.tick().await;
     }
@@ -135,8 +134,9 @@ impl Node for Source {
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 /// Holds parameters for the execution of the [`Source`] service.
 struct RunParams {
-  pub millis_per_cycle:  u64,
-  pub datapoints_to_run: usize,
+  pub starting_offset:  usize,
+  pub millis_per_cycle: u64,
+  pub hours_to_run:     usize,
 }
 
 
@@ -147,7 +147,6 @@ struct QueryParams {
   pub timestamp_name: String,
   pub from_table:     String,
   pub order_by:       String,
-  pub rows_to_fetch:  usize,
 }
 
 
@@ -161,39 +160,38 @@ mod tests {
   use pretty_assertions::assert_eq;
 
 
-  fn run_params() -> (u64, usize) {
+  fn run_params() -> (usize, u64, usize) {
+    let starting_offset = 1337;
     let millis_per_cycle = 42;
-    let datapoints_to_run = 1337;
+    let hours_to_run = 23;
 
-    (millis_per_cycle, datapoints_to_run)
+    (starting_offset, millis_per_cycle, hours_to_run)
   }
 
   fn run_params_init() -> RunParams {
-    let (millis_per_cycle, datapoints_to_run) = run_params();
+    let (starting_offset, millis_per_cycle, hours_to_run) = run_params();
 
-    RunParams { millis_per_cycle,
-                datapoints_to_run }
+    RunParams { starting_offset,
+                millis_per_cycle,
+                hours_to_run }
   }
 
-  fn query_params() -> (String, String, String, String, usize) {
+  fn query_params() -> (String, String, String, String) {
     let key_name = String::from("id");
     let timestamp_name = String::from("ts");
     let from_table = String::from("the.matrix");
     let order_by = String::from("serial");
-    let rows_to_fetch = 32;
 
-    (key_name, timestamp_name, from_table, order_by, rows_to_fetch)
+    (key_name, timestamp_name, from_table, order_by)
   }
 
   fn query_params_init() -> QueryParams {
-    let (key_name, timestamp_name, from_table, order_by, rows_to_fetch) =
-      query_params();
+    let (key_name, timestamp_name, from_table, order_by) = query_params();
 
     QueryParams { key_name,
                   timestamp_name,
                   from_table,
-                  order_by,
-                  rows_to_fetch }
+                  order_by }
   }
 
   fn source_init(rp: &RunParams, qp: &QueryParams) -> Source {
@@ -205,21 +203,20 @@ mod tests {
 
   #[test]
   fn source_test() {
-    let (millis_per_cycle, datapoints_to_run) = run_params();
+    let (starting_offset, millis_per_cycle, hours_to_run) = run_params();
 
     let rp = run_params_init();
+    assert_eq!(rp.starting_offset, starting_offset);
     assert_eq!(rp.millis_per_cycle, millis_per_cycle);
-    assert_eq!(rp.datapoints_to_run, datapoints_to_run);
+    assert_eq!(rp.hours_to_run, hours_to_run);
 
-    let (key_name, timestamp_name, from_table, order_by, rows_to_fetch) =
-      query_params();
+    let (key_name, timestamp_name, from_table, order_by) = query_params();
 
     let qp = query_params_init();
     assert_eq!(qp.key_name, key_name);
     assert_eq!(qp.timestamp_name, timestamp_name);
     assert_eq!(qp.from_table, from_table);
     assert_eq!(qp.order_by, order_by);
-    assert_eq!(qp.rows_to_fetch, rows_to_fetch);
 
     let src = source_init(&rp, &qp);
     assert_eq!(src.publishes, stringvec!["lon", "lat", "speed"]);

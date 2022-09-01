@@ -178,10 +178,10 @@ mod tests {
     let fluent = rx.recv().await.unwrap();
 
     assert_eq!(fluent.name(), "lon");
-    assert_eq!(fluent.keys(), &[245257000]);
-    assert_eq!(fluent.timestamp(), 1443650402);
-    assert_eq!(fluent.value::<f64>(), -4.4657183);
-    assert_eq!(fluent.last_change(), 1443650402);
+    assert_eq!(fluent.keys(), &[226338000]);
+    assert_eq!(fluent.timestamp(), 1443679200);
+    assert_eq!(fluent.value::<f64>(), -5.160865);
+    assert_eq!(fluent.last_change(), 1443679200);
 
     runner.abort();
   }

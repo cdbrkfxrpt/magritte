@@ -10,4 +10,4 @@ insert into
 -- ... using the following variables.
 -- variables are replaced by values.
 values
-  ($1, $2, $3, $4,  $5)
+  ($1, $2, $3, $4, $5)

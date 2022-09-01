@@ -81,7 +81,7 @@ impl Database {
       return None;
     }
 
-    Some(row.get::<usize, T>(0))
+    row.try_get::<usize, T>(0).ok()
   }
 }
 

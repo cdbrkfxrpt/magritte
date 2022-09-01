@@ -41,13 +41,19 @@ impl Sink {
       None => bail!("Sink not initialized, aborting"),
     };
 
-    let sql_raw = include_str!("./sql/sink.sql");
+    let statement_raw = include_str!("./sql/sink.sql");
+    let statement = match database_client.prepare(statement_raw).await {
+      Ok(statement) => statement,
+      Err(err) => {
+        panic!("Error in Sink PostgreSQL statement: {}", err);
+      }
+    };
     let timeout = Duration::from_millis(self.write_timeout as u64);
 
     while let Some((_, Ok(fluent))) = node_rx.next().await {
-      info!("Sink received: {:?}", fluent);
       // write only Boolean fluents to database
       if self.debug || !matches!(fluent, Fluent::Boolean(_)) {
+        // info!("{}: {:?}", fluent.name(), fluent.boxed_value());
         continue;
       }
 
@@ -58,7 +64,7 @@ impl Sink {
       let last_change = fluent.last_change() as i64;
 
       let args = sqlvec![&name, &keys, &timestamp, &value, &last_change];
-      let write_future = database_client.execute(sql_raw, args.as_slice());
+      let write_future = database_client.execute(&statement, args.as_slice());
 
       match time::timeout(timeout, write_future).await {
         Ok(result) => match result {

@@ -24,41 +24,37 @@ dbname = "doi105281zenodo1167595"
 
 [[sinks]]
 debug = false
-write_timeout = 150
+write_timeout = 100
 subscribes_to = [
+  "stopped_or_low_speed",
   "high_speed",
-  "near_coast",
-  "high_speed_near_coast"
+  "near_coast"
 ]
 
 [[sinks]]
 debug = false
-write_timeout = 150
+write_timeout = 100
 subscribes_to = [
-  "stopped_or_low_speed",
-  "proximity",
   "near_ports",
-  "rendez_vous"
+  "is_tug_or_pilot",
+  "rendez_vous_conditions"
 ]
 
-# [[sinks]]
-# debug = true
-# write_timeout = 80
-# subscribes_to = [
-#   "rendez_vous_candidates",
-#   "rendez_vous_conditions",
-#   "stopped_or_low_speed",
-#   "near_coast",
-#   "near_ports",
-#   "is_tug_or_pilot"
-# ]
+[[sinks]]
+debug = false
+write_timeout = 100
+subscribes_to = [
+  "high_speed_near_coast",
+  "proximity",
+  "rendez_vous"
+]
 
 [[sinks]]
 debug = true
 write_timeout = 100
 subscribes_to = [
-  "high_speed_near_coast_runtime",
-  "rendez_vous_runtime"
+  "high_speed_timer",
+  "proximity_timer"
 ]
 
 
@@ -66,12 +62,12 @@ subscribes_to = [
 publishes = ["lon", "lat", "speed"]
 
   [source.run_params]
-  millis_per_cycle = 250
-  datapoints_to_run = 100000
+  starting_offset = 28800
+  millis_per_cycle = 100
+  hours_to_run = 8
 
   [source.query_params]
   key_name = "mmsi"
   timestamp_name = "ts"
   from_table = "ais_data.dynamic_ships"
   order_by = "id"
-  rows_to_fetch = 32
