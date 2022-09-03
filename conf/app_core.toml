@@ -16,6 +16,7 @@ host = "localhost"
 user = "postgres"
 password = "barbershop"
 dbname = "doi105281zenodo1167595"
+timeout = 130 # milliseconds
 
 # [[sinks]]
 # debug = true
@@ -24,7 +25,7 @@ dbname = "doi105281zenodo1167595"
 
 [[sinks]]
 debug = false
-write_timeout = 150
+write_timeout = 80 # milliseconds
 subscribes_to = [
   "stopped_or_low_speed",
   "high_speed",
@@ -33,7 +34,7 @@ subscribes_to = [
 
 [[sinks]]
 debug = false
-write_timeout = 150
+write_timeout = 80 # milliseconds
 subscribes_to = [
   "near_ports",
   "is_tug_or_pilot",
@@ -42,7 +43,7 @@ subscribes_to = [
 
 [[sinks]]
 debug = false
-write_timeout = 150
+write_timeout = 80 # milliseconds
 subscribes_to = [
   "high_speed_near_coast",
   "proximity",
@@ -51,7 +52,7 @@ subscribes_to = [
 
 [[sinks]]
 debug = true
-write_timeout = 0
+write_timeout = 0 # milliseconds
 subscribes_to = [
   "high_speed_timer",
   "proximity_timer",
@@ -67,8 +68,8 @@ publishes = ["lon", "lat", "speed"]
 
   [source.run_params]
   starting_offset = 28800
-  millis_per_cycle = 250
-  hours_to_run = 2
+  millis_per_cycle = 100
+  hours_to_run = 8
 
   [source.query_params]
   key_name = "mmsi"

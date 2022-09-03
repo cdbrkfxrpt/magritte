@@ -22,6 +22,7 @@ pub struct Database {
   user:     String,
   password: String,
   dbname:   String,
+  timeout:  u64,
   #[serde(skip)]
   template: String,
 }
@@ -66,15 +67,17 @@ impl Database {
     }
 
     let client = self.connect().await.ok()?;
+
+    let timeout_duration = Duration::from_millis(self.timeout);
     let query_future = client.query_one(&self.template, params);
-    let row =
-      match time::timeout(Duration::from_millis(250), query_future).await {
-        Ok(query_result) => query_result.ok()?,
-        Err(_) => {
-          info!("database query timed out");
-          return None;
-        }
-      };
+
+    let row = match time::timeout(timeout_duration, query_future).await {
+      Ok(query_result) => query_result.ok()?,
+      Err(_) => {
+        info!("database query timed out");
+        return None;
+      }
+    };
 
     if row.len() != 1 {
       info!("database query returned more than one value");
@@ -101,12 +104,14 @@ mod tests {
     let user = String::from("neo");
     let password = String::from("trinity");
     let dbname = String::from("nebukadnezar");
+    let timeout = 80;
     let template = String::from("select * from bla");
 
     let dbc = Database { host:     host.clone(),
                          user:     user.clone(),
                          password: password.clone(),
                          dbname:   dbname.clone(),
+                         timeout:  timeout,
                          template: template.clone(), };
 
     // "dumb" tests
@@ -114,6 +119,7 @@ mod tests {
     assert_eq!(dbc.user, user);
     assert_eq!(dbc.password, password);
     assert_eq!(dbc.dbname, dbname);
+    assert_eq!(dbc.timeout, timeout);
     assert_eq!(dbc.template, template);
 
     let match_str = indoc! {r#"
@@ -122,6 +128,7 @@ mod tests {
           user: "neo",
           password: "trinity",
           dbname: "nebukadnezar",
+          timeout: 80,
           template: "select * from bla",
       }"#};
 
