@@ -120,7 +120,9 @@ impl Source {
 impl Node for Source {
   /// `Source` publishes fluents specified by name in the app configuration.
   fn publishes(&self) -> Vec<String> {
-    self.publishes.clone()
+    let mut publishes = self.publishes.clone();
+    publishes.push("instant".to_owned());
+    publishes
   }
 
   /// `Source` subscribes to no fluents. Implmenetation returns empty `Vec`.
