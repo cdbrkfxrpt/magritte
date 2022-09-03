@@ -9,8 +9,9 @@ use crate::fluent::{Fluent, FluentTrait};
 
 use eyre::Result;
 use serde::Deserialize;
-use std::collections::HashMap;
-use tokio::sync::{broadcast, mpsc};
+use std::{collections::HashMap, time::Duration};
+use tokio::{sync::{broadcast, mpsc},
+            time};
 use tokio_stream::StreamMap;
 // use tracing::info;
 
@@ -20,6 +21,7 @@ use tokio_stream::StreamMap;
 /// forwards them to subscriber nodes efficiently.
 pub struct Broker {
   broadcast_capacity: usize,
+  timeout:            u64,
   #[serde(skip)]
   fluents:            HashMap<String, broadcast::Sender<Fluent>>,
   #[serde(skip, default = "mpsc::unbounded_channel")]
@@ -57,9 +59,15 @@ impl Broker {
   /// to the  [`Node`]s which are subscribed to the respective fluent.
   pub async fn run(self) -> Result<()> {
     let mut input_rx = self.node_ch.1;
-    while let Some(any_fluent) = input_rx.recv().await {
-      // info!("received fluent: {:?}", any_fluent);
-      let fluent_name = any_fluent.name().to_string();
+    let timeout_duration = Duration::from_secs(self.timeout);
+
+    // TODO
+    // better timeout message than the default "deadline has elapsed"
+    while let Some(fluent) =
+      time::timeout(timeout_duration, input_rx.recv()).await?
+    {
+      // info!("received fluent: {:?}", fluent);
+      let fluent_name = fluent.name().to_string();
       // sending on a broadcast channel may return an error Result, which just
       // means that there are no receivers for this channel. however, it still
       // takes resources and since CURRENTLY all our receivers are known at
@@ -69,7 +77,7 @@ impl Broker {
       }
 
       // now we can safely ? on the send; otherwise we could use a match here.
-      self.fluents[&fluent_name].send(any_fluent)?;
+      self.fluents[&fluent_name].send(fluent)?;
     }
     Ok(())
   }

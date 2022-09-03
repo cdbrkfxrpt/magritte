@@ -9,6 +9,7 @@ buffer_timeout = 3600
 
 [broker]
 broadcast_capacity = 256
+timeout = 30 # seconds
 
 
 [database]

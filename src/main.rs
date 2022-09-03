@@ -90,7 +90,7 @@ async fn main() -> Result<()> {
         }
       }
       Err(e) => {
-        info!("app core crashed: {}", e);
+        info!("app core aborted: {}", e);
         if let Err(e) = main_tx.send(ShutdownCause::BrokerInitFailed) {
           error!("unable to inform magritte main task: {}", e);
         }
