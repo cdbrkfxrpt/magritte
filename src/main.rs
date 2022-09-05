@@ -127,7 +127,7 @@ fn setup() -> Result<()> {
   // set up format layer with filtering for tracing
   const LG_ENVVAR: &str = "RUST_LOG";
   if std::env::var(LG_ENVVAR).is_err() {
-    std::env::set_var(LG_ENVVAR, "info")
+    std::env::set_var(LG_ENVVAR, "error")
   }
   let format_layer = fmt::layer().with_filter(EnvFilter::from_default_env());
 

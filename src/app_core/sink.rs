@@ -54,15 +54,15 @@ impl Sink {
       // write only Boolean fluents to database
       if self.debug || !matches!(fluent, Fluent::Boolean(_)) {
         if self.write_timeout == 0 {
-          println!("{},{},{},{:?}",
+          println!("{},{},{:?},{}",
+                   fluent.timestamp(),
                    fluent.name(),
+                   fluent.boxed_value(),
                    fluent.keys()
                          .iter()
                          .map(|k| format!("{}", k))
                          .collect::<Vec<_>>()
-                         .join("|"),
-                   fluent.timestamp(),
-                   fluent.boxed_value());
+                         .join("|"));
         }
         continue;
       }

@@ -8,15 +8,12 @@ use super::{Node, NodeRx, NodeTx};
 use crate::fluent::Fluent;
 
 use eyre::{bail, eyre, Result};
+use indicatif::{ProgressBar, ProgressStyle};
 use serde::Deserialize;
 use std::time::Instant;
 use tokio::time;
 use tokio_postgres::Client;
 use tracing::info;
-
-
-const BIG_BANG: usize = 1_443_650_400;
-const ARMAGEDDON: usize = 1_459_461_599;
 
 
 #[derive(Debug, Deserialize)]
@@ -49,13 +46,24 @@ impl Source {
       None => bail!("Source not initialized, aborting"),
     };
 
-    let query_statement_raw =
-      format!(include_str!("./sql/source.sql"),
-              key_name = self.query_params.key_name,
-              timestamp_name = self.query_params.timestamp_name,
-              fluent_names = self.publishes.join(", "),
-              from_table = self.query_params.from_table,
-              order_by = self.query_params.order_by);
+    let rp = self.run_params;
+    let qp = self.query_params;
+
+    let start_time = rp.big_bang + rp.starting_offset;
+    let end_time =
+      std::cmp::min(start_time + rp.hours_to_run * 3_600, rp.armageddon);
+
+    info!("start_time: {} - end_time: {}", start_time, end_time);
+
+    let query_statement_raw = format!(include_str!("./sql/source.sql"),
+                                      key_name = qp.key_name,
+                                      timestamp_name = qp.timestamp_name,
+                                      fluent_names =
+                                        self.publishes.join(", "),
+                                      from_table = qp.from_table,
+                                      start_time = start_time,
+                                      end_time = end_time,
+                                      order_by = qp.order_by);
 
     let query_statement =
       match database_client.prepare(&query_statement_raw).await {
@@ -69,50 +77,88 @@ impl Source {
     info!("SQL statement prepared");
 
     let mut interval =
-      time::interval(time::Duration::from_millis(self.run_params
-                                                     .millis_per_cycle));
+      time::interval(time::Duration::from_millis(rp.millis_per_cycle));
 
-    let mut time: usize = BIG_BANG + self.run_params.starting_offset;
-    let mut key: usize;
+    let mut time = start_time;
 
-    while let Ok(rows) = database_client.query(&query_statement,
-                                               &[&(time as i64)])
-                                        .await
+    // get all data points
+    if let Ok(mut all_rows) =
+      database_client.query(&query_statement, &[]).await
     {
-      if !rows.is_empty() {
-        // print number of rows --> "simultaneous data points"
-        println!("data_points,{}", rows.len());
-      }
-      for row in rows {
-        key = row.get::<&str, i32>("key") as usize;
+      eprintln!("found {} rows between {} and {}",
+                all_rows.len(),
+                start_time,
+                end_time);
 
-        node_tx.send(Fluent::new("instant",
-                                 &[key],
-                                 time,
-                                 Box::new(Instant::now())))?;
+      let pb = ProgressBar::new(all_rows.len() as u64);
+      pb.set_style(
+        ProgressStyle::with_template(
+          "[{elapsed_precise}] [{bar:80.cyan/blue}] {pos:>7}/{len:7} {percent:>3}% ({eta_precise})")
+        .unwrap()
+        .progress_chars("#|-"));
 
-        for fluent_name in self.publishes.iter() {
-          let value: f64 = row.get(fluent_name.as_str());
-          let fluent =
-            Fluent::new(&fluent_name, &[key], time, Box::new(value));
+      let mut processed = 0;
 
-          node_tx.send(fluent)?;
+      // walk through data points, taking only those relevant to the current
+      // time value, which advances by one each iteration
+      while !all_rows.is_empty() {
+        let rows = all_rows.iter()
+                           .rev()
+                           .take_while(|row| {
+                             row.get::<&str, i64>("timestamp") as usize <= time
+                           })
+                           .collect::<Vec<_>>();
+
+        // if no data points for this time, continue
+        if rows.is_empty() {
+          time += 1;
+          interval.tick().await;
+          continue;
         }
-      }
-      time += 1;
 
-      if self.run_params.hours_to_run > 0
-         && (time == BIG_BANG + self.run_params.hours_to_run * 3_600
-             || time == ARMAGEDDON)
-      {
-        info!("ran requested timeframe ({} hours) or reached end of data",
-              self.run_params.hours_to_run);
-        return Ok(());
+        // store number of rows in var for later use
+        let no_of_rows = rows.len();
+
+        // print number of rows --> "simultaneous data points"
+        println!("{},data_points,{}", time, no_of_rows);
+
+        // process all current timestamps
+        for row in rows {
+          let key = row.get::<&str, i32>("key") as usize;
+          let timestamp = row.get::<&str, i64>("timestamp") as usize;
+
+          node_tx.send(Fluent::new("instant",
+                                   &[key],
+                                   timestamp,
+                                   Box::new(Instant::now())))?;
+
+          for fluent_name in self.publishes.iter() {
+            let value: f64 = row.get(fluent_name.as_str());
+            let fluent =
+              Fluent::new(&fluent_name, &[key], timestamp, Box::new(value));
+
+            node_tx.send(fluent)?;
+          }
+        }
+
+        // increase time by one to step forward
+        time += 1;
+
+        // drop rows which have been processed
+        all_rows.truncate(all_rows.len().saturating_sub(no_of_rows));
+        processed += no_of_rows;
+
+        pb.set_position(processed as u64);
+
+        // tick the interval
+        interval.tick().await;
       }
 
-      interval.tick().await;
+      pb.finish_with_message("ran all data points");
     }
 
+    info!("ran requested timeframe ({} hours) or reached end of data",
+          rp.hours_to_run);
     Ok(())
   }
 }
@@ -140,6 +186,8 @@ impl Node for Source {
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 /// Holds parameters for the execution of the [`Source`] service.
 struct RunParams {
+  pub big_bang:         usize,
+  pub armageddon:       usize,
   pub starting_offset:  usize,
   pub millis_per_cycle: u64,
   pub hours_to_run:     usize,
@@ -166,18 +214,26 @@ mod tests {
   use pretty_assertions::assert_eq;
 
 
-  fn run_params() -> (usize, u64, usize) {
+  fn run_params() -> (usize, usize, usize, u64, usize) {
+    let big_bang = 1972;
+    let armageddon = 2042;
     let starting_offset = 1337;
     let millis_per_cycle = 42;
     let hours_to_run = 23;
 
-    (starting_offset, millis_per_cycle, hours_to_run)
+    (big_bang, armageddon, starting_offset, millis_per_cycle, hours_to_run)
   }
 
   fn run_params_init() -> RunParams {
-    let (starting_offset, millis_per_cycle, hours_to_run) = run_params();
+    let (big_bang,
+         armageddon,
+         starting_offset,
+         millis_per_cycle,
+         hours_to_run) = run_params();
 
-    RunParams { starting_offset,
+    RunParams { big_bang,
+                armageddon,
+                starting_offset,
                 millis_per_cycle,
                 hours_to_run }
   }
@@ -209,9 +265,15 @@ mod tests {
 
   #[test]
   fn source_test() {
-    let (starting_offset, millis_per_cycle, hours_to_run) = run_params();
+    let (big_bang,
+         armageddon,
+         starting_offset,
+         millis_per_cycle,
+         hours_to_run) = run_params();
 
     let rp = run_params_init();
+    assert_eq!(rp.big_bang, big_bang);
+    assert_eq!(rp.armageddon, armageddon);
     assert_eq!(rp.starting_offset, starting_offset);
     assert_eq!(rp.millis_per_cycle, millis_per_cycle);
     assert_eq!(rp.hours_to_run, hours_to_run);
@@ -226,7 +288,8 @@ mod tests {
 
     let src = source_init(&rp, &qp);
     assert_eq!(src.publishes, stringvec!["lon", "lat", "speed"]);
-    assert_eq!(src.publishes(), stringvec!["lon", "lat", "speed"]);
+    assert_eq!(src.publishes(),
+               stringvec!["lon", "lat", "speed", "instant"]);
     assert_eq!(src.subscribes_to(), Vec::<String>::new());
     assert_eq!(src.run_params, rp);
     assert_eq!(src.query_params, qp);

@@ -161,7 +161,8 @@ mod tests {
 
     let mut source = app_core.source;
 
-    assert_eq!(source.publishes(), stringvec!["lon", "lat", "speed"]);
+    assert_eq!(source.publishes(),
+               stringvec!["lon", "lat", "speed", "instant"]);
     assert_eq!(source.subscribes_to(), Vec::<String>::new());
 
     let (tx, mut rx) = mpsc::unbounded_channel();
@@ -193,7 +194,8 @@ mod tests {
     let source = app_core.source;
     let database_client = app_core.database.connect().await.unwrap();
 
-    assert_eq!(source.publishes(), stringvec!["lon", "lat", "speed"]);
+    assert_eq!(source.publishes(),
+               stringvec!["lon", "lat", "speed", "instant"]);
     assert_eq!(source.subscribes_to(), Vec::<String>::new());
     assert!(source.run(Some(database_client)).await.is_err());
   }

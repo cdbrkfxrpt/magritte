@@ -119,7 +119,9 @@ impl Handler {
         {
           debug!("updating and sending '{}' from history", fluent_name);
           history_fluent.update(timestamp, history_fluent.boxed_value());
-          node_tx.send(history_fluent.clone())?;
+          if let Err(err) = node_tx.send(history_fluent.clone()) {
+            eprintln!("error sending to broker: {}", err);
+          }
           continue;
         }
       }
@@ -188,8 +190,10 @@ impl Handler {
               fluent
             }
           };
-          node_tx.send(fluent)
-                 .expect("unable to send fluent to broker");
+
+          if let Err(err) = node_tx.send(fluent) {
+            eprintln!("unable to send fluent to broker: {}", err);
+          }
         });
       }
     }

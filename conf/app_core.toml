@@ -4,7 +4,7 @@
 # received a copy of this license along with the source code. If that is not
 # the case, please find one at http://www.apache.org/licenses/LICENSE-2.0.
 
-buffer_timeout = 3600
+buffer_timeout = 3_600
 
 
 [broker]
@@ -17,7 +17,7 @@ host = "localhost"
 user = "postgres"
 password = "barbershop"
 dbname = "doi105281zenodo1167595"
-timeout = 130 # milliseconds
+timeout = 150 # milliseconds
 
 # [[sinks]]
 # debug = true
@@ -26,7 +26,7 @@ timeout = 130 # milliseconds
 
 [[sinks]]
 debug = false
-write_timeout = 80 # milliseconds
+write_timeout = 120 # milliseconds
 subscribes_to = [
   "stopped_or_low_speed",
   "high_speed",
@@ -35,7 +35,7 @@ subscribes_to = [
 
 [[sinks]]
 debug = false
-write_timeout = 80 # milliseconds
+write_timeout = 120 # milliseconds
 subscribes_to = [
   "near_ports",
   "is_tug_or_pilot",
@@ -44,7 +44,7 @@ subscribes_to = [
 
 [[sinks]]
 debug = false
-write_timeout = 80 # milliseconds
+write_timeout = 120 # milliseconds
 subscribes_to = [
   "high_speed_near_coast",
   "proximity",
@@ -68,9 +68,11 @@ subscribes_to = [
 publishes = ["lon", "lat", "speed"]
 
   [source.run_params]
-  starting_offset = 28800
+  big_bang = 1_443_650_400
+  armageddon = 1_459_461_599
+  starting_offset = 28_800
   millis_per_cycle = 100
-  hours_to_run = 8
+  hours_to_run = 4
 
   [source.query_params]
   key_name = "mmsi"
