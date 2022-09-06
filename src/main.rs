@@ -50,10 +50,10 @@ enum ShutdownCause {
 // #[tokio::main]
 // defined mode - specify from 1 to x how many workers should be run:
 // #[tokio::main(flavor = "current_thread")]
-#[tokio::main(flavor = "multi_thread", worker_threads = 2)]
+// #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 // #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 // #[tokio::main(flavor = "multi_thread", worker_threads = 8)]
-// #[tokio::main(flavor = "multi_thread", worker_threads = 16)]
+#[tokio::main(flavor = "multi_thread", worker_threads = 16)]
 /// Application entry point. Sets up core services and runs the application.
 async fn main() -> Result<()> {
   setup()?;
