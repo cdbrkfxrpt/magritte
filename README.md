@@ -4,16 +4,17 @@ _Ceci n'est pas une pipe._
 
 > An implementation of a logic-based time series analysis approach.
 
-As self declared, magritte is not a pipeline (at least not in the canonical
-sense), even though a visualization would clearly look like one. It is
-asynchronous on all paths, and it takes care of everything from data
-acquisition to storing results in an easy-to-visualize manner.
+Following the pattern of visual dichotomy created by René Magritte in his
+famous painting, `magritte` is a pipeline but it is also not. It is a pipeline
+because it receives a data stream and produces an event stream (which is also a
+data stream), but it is not for its architecture is a publisher-subscriber
+mechanism.
 
 
 ## What else is it not?
 
 Unless you are interested for the purpose of learning, this is not something
-you should be looking at. In other words, **don't use this in prod**.
+you should be looking at.
 
 
 ## Background
@@ -49,103 +50,33 @@ respective purposes at both ends of the (not-a-)pipeline.
 
 ![Architecture showing **magritte**](./misc/architecture.png "Architecture showing magritte")
 
-In actuality, **harvester** is a **magritte** component but can be easily
-switched out for adaptation to a different data source.
+There is a separate bundle called `barbershop` which contains all the yak
+shaving elements to set up some docker containers running the database,
+downloading the dataset and preloading it into the database. It has some more
+than that, which is explained in its README file.
 
 
 ## Base Technologies
 
 All components of **magritte** are written in the Rust programming language.
-The following core technologies are used:
-
-- [tokio](https://tokio.rs/): asynchronous runtime
-- [gRPC](https://grpc.io/): component interaction via RPC
-    * [Protocol Buffers](https://developers.google.com/protocol-buffers): gRPC
-        service description language designed by Google
-    * [tonic](https://github.com/hyperium/tonic): Rust implementation of gRPC,
-        asynchronous and from the tokio stack
-- [actix](https://actix.rs/): now mainly a web framework, but also a Rust
-    implementation of the Actor model based on tokio
-
-**barbershop** and **opsroom** furthermore make heavy use of docker and
-services running in docker containers. The database used by the setup is a
-[PostgreSQL](https://www.postgresql.org/) (also running in a docker container).
-
-
-## Code Base Structure
-
-- **barbershop** and **opsroom**: separate entities, not included in this repo
-- **magritte**: Rust project
-    * text files (`Cargo.toml`, ...)
-    * `proto`: contains `*.proto` file(s) specifying the gRPC protocol
-    * `src`
-        - `bin`: application code of binaries
-            * `harvester`
-            * `dylonet`
-            * `bakery`
-        - _library code..._
-
-Tests are, as is possible and common in Rust, included in the respective source
-files. The same is true for documentation which is included in source files in
-the form of `cargo doc`-able comment strings.
+The [tokio](https://tokio.rs/) asynchronous runtime is used to implement the
+concurrent tasks and scheduling them.
 
 
 ## Build and Run
 
-Building **magritte** is as canonical as it gets:
+Building and running **magritte** is as canonical as it gets:
 
 ```sh
 cargo build
+# or
+cargo run
+# or
+cargo run --release
 ```
 
-Afterwards, if you intend running it, make sure that you have followed the
-instructions which came with **barbershop** and everything is up and running.
-When that's the case you're ready to run **magritte**:
+Rust and `cargo` documentation is published online. Google is your friend.
 
-```sh
-cargo run --bin harvester
-cargo run --bin dylonet
-cargo run --bin bakery
-```
-
-The order doesn't matter here; **harvester** and **bakery** both wait for
-**dylonet** to come up and **dylonet** in turn doesn't do anything without
-receiving data from **harvester** and it buffers all the results (of recent
-interest) of the current.
-
-It's supposed to be simple. If you don't find it so, please let me know.
-
-There are also tests:
-
-```sh
-cargo test
-```
-
-So also this is (supposed to be) simple.
-
-
-## Usage
-
-Input data must be stored in a PostgreSQL database.
-
-#### Time Series Data
-
-Time series data must be stored in a PostgreSQL database table as rows which
-have as columns:
-
-- exactly one source identifier (which vehicle/facility/sensor is this data
-    point coming from?) in `int` or `bigint` format
-- exactly one timestamp (`bigint` as UNIX epoch or `timestamp` format)
-- one or more value domain elements
-
-#### Background Knowledge
-
-Background knowledge must be stored in PostgreSQL database table
-
-
-## References and Acknowledgments
-
-TO DO
 
 ---
 
