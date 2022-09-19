@@ -34,9 +34,8 @@ but impossible. The different approaches are usually most applicable at
 different stages of the process.
 
 Using a logical approach in a concurrent way for the analysis stage of the
-process is the subject of [my Master's
-thesis](https://gitlab.bmc-labs.com/flrn/eich21), _Concurrent Stream Reasoning
-for Complex Event Recognition_. This project here contains the implementation
+process is the subject of my Master's thesis, _Concurrent Stream Reasoning for
+Complex Event Recognition_. This project here contains the implementation
 of the (not-a-)pipeline part of the system.
 
 
