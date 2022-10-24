@@ -29,11 +29,11 @@ impl<VT: ValueType + PartialEq + Clone> InnerFluent<VT> {
              timestamp: Timestamp,
              value: VT)
              -> Self {
-    Self { name:        name.to_owned(),
-           keys:        keys.to_owned(),
-           timestamp:   timestamp,
-           value:       value,
-           last_change: timestamp, }
+    Self { name: name.to_owned(),
+           keys: keys.to_owned(),
+           timestamp,
+           value,
+           last_change: timestamp }
   }
 
   /// Update the fluent with a new timestamp. Update value if it has
@@ -81,7 +81,7 @@ impl<VT: ValueType + PartialEq + Clone> Eq for InnerFluent<VT> {}
 
 impl<VT: ValueType + PartialEq + Clone> PartialOrd for InnerFluent<VT> {
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-    Some(self.cmp(&other))
+    Some(self.cmp(other))
   }
 }
 
@@ -98,7 +98,7 @@ mod tests {
   use super::{FluentTrait, InnerFluent};
 
   use pretty_assertions::assert_eq;
-  use std::convert::From;
+  use std::{convert::From, f64::consts};
 
 
   #[test]
@@ -150,7 +150,7 @@ mod tests {
     let name = "floatpt_fluent";
     let keys = &[23, 42];
     let timestamp = 1337;
-    let value = 3.14159;
+    let value = consts::PI;
 
     let fluent = InnerFluent::new(name, keys, timestamp, value);
 
@@ -194,7 +194,7 @@ mod tests {
     let name = "planept_fluent";
     let keys = &[23, 42];
     let timestamp = 1337;
-    let value = (3.14159, 2.71828);
+    let value = (consts::PI, consts::E);
 
     let fluent = InnerFluent::new(name, keys, timestamp, value);
 

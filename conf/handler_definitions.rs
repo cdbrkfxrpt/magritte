@@ -281,7 +281,7 @@
     "#}),
     eval_fn: EvalFn::specify(Arc::new(
       |fluents, database| async move {
-        let key = fluents.get(0)?.keys().get(0)?.to_owned() as i32;
+        let key = fluents.get(0)?.keys().first()?.to_owned() as i32;
         let ship_type = database.query::<i32>(&[&key]).await?;
 
         // Vessel Type Codes:

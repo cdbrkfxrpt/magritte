@@ -111,7 +111,7 @@ mod tests {
                          user:     user.clone(),
                          password: password.clone(),
                          dbname:   dbname.clone(),
-                         timeout:  timeout,
+                         timeout,
                          template: template.clone(), };
 
     // "dumb" tests

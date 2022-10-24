@@ -137,6 +137,7 @@ mod tests {
   use super::{Fluent, FluentTrait, InnerFluent};
 
   use pretty_assertions::assert_eq;
+  use std::f64::consts;
 
 
   #[test]
@@ -189,7 +190,7 @@ mod tests {
     let name = "floatpt_fluent";
     let keys = &[23, 42];
     let timestamp = 1337;
-    let value = 3.14159;
+    let value = consts::PI;
 
     let any_fluent = Fluent::new(name, keys, timestamp, Box::new(value));
 
@@ -203,7 +204,7 @@ mod tests {
 
     let dbg_print = format!("{:?}", any_fluent);
     assert_eq!(&dbg_print,
-               r#"FloatPt(InnerFluent { name: "floatpt_fluent", keys: [23, 42], timestamp: 1337, value: 3.14159, last_change: 1337 })"#);
+               r#"FloatPt(InnerFluent { name: "floatpt_fluent", keys: [23, 42], timestamp: 1337, value: 3.141592653589793, last_change: 1337 })"#);
   }
 
   #[test]
@@ -233,7 +234,7 @@ mod tests {
     let name = "planept_fluent";
     let keys = &[23, 42];
     let timestamp = 1337;
-    let value = (3.14159, 2.71828);
+    let value = (consts::PI, consts::E);
 
     let any_fluent = Fluent::new(name, keys, timestamp, Box::new(value));
 
@@ -247,6 +248,6 @@ mod tests {
 
     let dbg_print = format!("{:?}", any_fluent);
     assert_eq!(&dbg_print,
-               r#"PlanePt(InnerFluent { name: "planept_fluent", keys: [23, 42], timestamp: 1337, value: (3.14159, 2.71828), last_change: 1337 })"#);
+               r#"PlanePt(InnerFluent { name: "planept_fluent", keys: [23, 42], timestamp: 1337, value: (3.141592653589793, 2.718281828459045), last_change: 1337 })"#);
   }
 }

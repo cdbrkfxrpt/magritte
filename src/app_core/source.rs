@@ -135,7 +135,7 @@ impl Source {
           for fluent_name in self.publishes.iter() {
             let value: f64 = row.get(fluent_name.as_str());
             let fluent =
-              Fluent::new(&fluent_name, &[key], timestamp, Box::new(value));
+              Fluent::new(fluent_name, &[key], timestamp, Box::new(value));
 
             node_tx.send(fluent)?;
           }

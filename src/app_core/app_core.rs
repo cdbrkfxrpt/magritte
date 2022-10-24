@@ -39,7 +39,7 @@ impl AppCore {
   pub fn init() -> Result<Self> {
     let args = util::CommandLineArgs::parse();
     let app_init: Self =
-      toml::from_str(&fs::read_to_string(args.config_path.clone())?)?;
+      toml::from_str(&fs::read_to_string(args.config_path)?)?;
 
     Ok(app_init)
   }

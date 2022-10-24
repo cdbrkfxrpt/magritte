@@ -17,7 +17,7 @@ use tokio_stream::StreamExt;
 use tracing::debug;
 
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum KeyDependency {
   Static,
   Concurrent,
@@ -226,39 +226,42 @@ mod util {
 
 
   /// Merges two key lists, removing duplicates.
-  fn merge<T>(lhs: &Vec<T>, rhs: &Vec<T>) -> Vec<T>
+  fn merge<T>(lhs: &[T], rhs: &[T]) -> Vec<T>
     where T: PartialEq + Ord + Clone {
-    lhs.union(rhs.clone()).into_iter().sorted().collect()
+    lhs.to_vec()
+       .union(rhs.to_vec())
+       .into_iter()
+       .sorted()
+       .collect()
   }
 
   /// Checks if all [`Fluent`]s in collection have the same timestamp.
-  fn same_timestamps(fluents: &Vec<Fluent>) -> bool {
+  fn same_timestamps(fluents: &[Fluent]) -> bool {
     fluents.windows(2)
            .all(|w| w[0].timestamp() == w[1].timestamp())
   }
 
   /// Get names of all [`Fluent`]s in collection.
-  fn fluent_names(fluents: &Vec<Fluent>) -> Vec<String> {
+  fn fluent_names(fluents: &[Fluent]) -> Vec<String> {
     fluents.iter().map(|f| f.name().to_string()).collect()
   }
 
   /// Get keys of all  [`Fluent`]s in collection.
-  pub fn fluent_keys(fluents: &Vec<Fluent>) -> Vec<Key> {
+  pub fn fluent_keys(fluents: &[Fluent]) -> Vec<Key> {
     fluents.iter()
-           .map(|f| f.keys().iter().cloned().collect::<Vec<_>>())
-           .flatten()
+           .flat_map(|f| f.keys().to_vec())
            .sorted()
            .collect::<Vec<_>>()
            .unique()
   }
 
   /// Check if two collections ([`Vec`]s) have the same elements.
-  pub fn equal<T: PartialEq>(lhs: &Vec<T>, rhs: &Vec<T>) -> bool {
-    lhs.len() == rhs.len() && lhs.iter().all(|e| rhs.contains(&e))
+  pub fn equal<T: PartialEq>(lhs: &[T], rhs: &[T]) -> bool {
+    lhs.len() == rhs.len() && lhs.iter().all(|e| rhs.contains(e))
   }
 
   /// Sorts a `Vec` of [`Fluent`]s by name, in a given order of names.
-  pub fn sort_by_given_order(fluents: &mut Vec<Fluent>, order: &Vec<String>) {
+  pub fn sort_by_given_order(fluents: &mut [Fluent], order: &[String]) {
     fluents.sort_by(|lhs, rhs| {
              let lhs_pos =
                order.iter().position(|name| name == lhs.name()).unwrap();
@@ -272,7 +275,7 @@ mod util {
   pub fn dependency_sets(buffer: &mut BTreeMap<Vec<Key>, Vec<Fluent>>,
                          keys: &Vec<Key>,
                          timestamp: Timestamp,
-                         dependencies: &Vec<String>,
+                         dependencies: &[String],
                          key_dependency: &KeyDependency)
                          -> BTreeMap<Vec<Key>, Vec<Fluent>> {
     let mut dependency_sets = BTreeMap::new();
