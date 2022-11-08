@@ -21,7 +21,6 @@
 // crate level attributes
 #![feature(box_into_inner)]
 #![feature(downcast_unchecked)]
-#![feature(let_else)]
 //
 
 mod app_core;
